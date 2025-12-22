@@ -25,7 +25,7 @@
 
 ## 安装
 
-1. 在 VSCode 扩展市场搜索"云效工作项助手"
+1. 在 VSCode 扩展市场搜索"云效工作项助手" [云效工作项助手](https://marketplace.visualstudio.com/items?itemName=WindLi.yunxiao-workitem-helper)
 2. 点击安装
 3. 重启 VSCode
 ## 截屏
