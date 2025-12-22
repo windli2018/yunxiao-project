@@ -1,0 +1,436 @@
+{
+  "name": "yunxiao-workitem-helper",
+  "displayName": "云效工作项助手",
+  "description": "将阿里云效项目管理集成到 VSCode，快速关联工作项到提交消息",
+  "version": "1.0.0",
+  "publisher": "WindLi",
+  "icon": "images/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/windli2018/yunxiao-project.git"
+  },
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "yunxiao",
+    "alibaba cloud",
+    "devops",
+    "project management",
+    "work item",
+    "commit message",
+    "云效",
+    "工作项"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "yunxiao-workitem",
+          "title": "%yunxiao.activitybar.title%",
+          "icon": "images/icons/bar_icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "yunxiao-workitem": [
+        {
+          "id": "yunxiao.projects",
+          "name": "%yunxiao.projects.title%"
+        },
+        {
+          "id": "yunxiao.workitems",
+          "name": "%yunxiao.workitems.title%"
+        },
+        {
+          "id": "yunxiao.recent",
+          "name": "%yunxiao.recent.title%"
+        }       
+      ]
+    },
+    "removedViews":[
+        {
+          "id": "yunxiao.search",
+          "name": "%yunxiao.search.title%"
+        }
+    ],
+    "commands": [
+      {
+        "command": "yunxiao.login",
+        "title": "%yunxiao.login.title%",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "yunxiao.logout",
+        "title": "%yunxiao.logout.title%",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "yunxiao.selectProject",
+        "title": "%yunxiao.selectProject.title%",
+        "icon": "$(project)"
+      },
+      {
+        "command": "yunxiao.selectWorkItem",
+        "title": "%yunxiao.selectWorkItem.title%",
+        "icon": "$(search)"
+      },
+      {
+        "command": "yunxiao.pasteToCommit",
+        "title": "%yunxiao.pasteToCommit.title%",
+        "icon": "$(insert)"
+      },
+      {
+        "command": "yunxiao.searchWorkItems",
+        "title": "%yunxiao.searchWorkItems.title%",
+        "icon": "$(search)"
+      },
+      {
+        "command": "yunxiao.openInBrowser",
+        "title": "%yunxiao.openInBrowser.title%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "yunxiao.refresh",
+        "title": "%yunxiao.refresh.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.configure",
+        "title": "%yunxiao.configure.title%",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "yunxiao.manageOrganizationId",
+        "title": "%yunxiao.manageOrganizationId.title%",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "yunxiao.refreshProjects",
+        "title": "%yunxiao.refreshProjects.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.refreshWorkItems",
+        "title": "%yunxiao.refreshWorkItems.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.toggleFavorite",
+        "title": "%yunxiao.toggleFavorite.title%",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "yunxiao.removeFavorite",
+        "title": "%yunxiao.removeFavorite.title%",
+        "icon": "$(star-full)"
+      },
+      {
+        "command": "yunxiao.copyToClipboard",
+        "title": "%yunxiao.copyToClipboard.title%",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "yunxiao.removeFromRecent",
+        "title": "%yunxiao.removeFromRecent.title%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "yunxiao.clearAllRecent",
+        "title": "%yunxiao.clearAllRecent.title%",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "yunxiao.openSearchInput",
+        "title": "%yunxiao.openSearchInput.title%",
+        "icon": "$(search)"
+      },
+      {
+        "command": "yunxiao.openFilterOptions",
+        "title": "%yunxiao.openFilterOptions.title%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "yunxiao.quickSearchFromSCM",
+        "group": "Commit",
+        "title": "%yunxiao.quickSearchFromSCM.title%",
+        "icon": "images/icons/yunxiao_search.svg"
+      },
+      {
+        "command": "yunxiao.statusBarClick",
+        "title": "%yunxiao.statusBarClick.title%"
+      },
+      {
+        "command": "yunxiao.showStatusBarMenu",
+        "title": "%yunxiao.showStatusBarMenu.title%",
+        "icon": "$(menu)"
+      },
+      {
+        "command": "yunxiao.workItemQuickFilter",
+        "title": "%yunxiao.workItemQuickFilter.title%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "yunxiao.clearWorkItemFilter",
+        "title": "%yunxiao.clearWorkItemFilter.title%",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "yunxiao.refreshProjects",
+          "when": "view == yunxiao.projects",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.logout",
+          "when": "view == yunxiao.projects",
+          "group": "navigation@2"
+        },
+        {
+          "command": "yunxiao.refreshWorkItems",
+          "when": "view == yunxiao.workitems",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.searchWorkItems",
+          "when": "view == yunxiao.search",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.clearAllRecent",
+          "when": "view == yunxiao.recent",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "yunxiao.toggleFavorite",
+          "when": "viewItem == project",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.removeFavorite",
+          "when": "viewItem == project-favorited",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.toggleFavorite",
+          "when": "viewItem == project",
+          "group": "1_favorite@1"
+        },
+        {
+          "command": "yunxiao.removeFavorite",
+          "when": "viewItem == project-favorited",
+          "group": "1_favorite@1"
+        },
+        {
+          "command": "yunxiao.pasteToCommit",
+          "when": "viewItem == workitem",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.openInBrowser",
+          "when": "viewItem == workitem || viewItem == project",
+          "group": "inline@2"
+        },
+        {
+          "command": "yunxiao.pasteToCommit",
+          "when": "viewItem == workitem",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "yunxiao.openInBrowser",
+          "when": "viewItem == workitem",
+          "group": "2_actions@2"
+        },
+        {
+          "command": "yunxiao.copyToClipboard",
+          "when": "viewItem == workitem",
+          "group": "2_actions@3"
+        },
+        {
+          "command": "yunxiao.removeFromRecent",
+          "when": "viewItem == workitem || viewItem == project",
+          "group": "3_recent@1"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "yunxiao.quickSearchFromSCM",
+          "group": "navigation@-1003",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "yunxiao.selectProject",
+        "key": "ctrl+shift+y p",
+        "mac": "cmd+shift+y p"
+      },
+      {
+        "command": "yunxiao.quickSearchFromSCM",
+        "key": "ctrl+shift+y c",
+        "mac": "cmd+shift+y c"
+      },
+      {
+        "command": "yunxiao.openInBrowser",
+        "key": "ctrl+shift+y o",
+        "mac": "cmd+shift+y o"
+      },
+      {
+        "command": "yunxiao.refresh",
+        "key": "ctrl+shift+y r",
+        "mac": "cmd+shift+y r"
+      },
+      {
+        "command": "yunxiao.logout",
+        "key": "ctrl+shift+y l",
+        "mac": "cmd+shift+y l"
+      },
+      {
+        "command": "yunxiao.showStatusBarMenu",
+        "key": "ctrl+shift+y m",
+        "mac": "cmd+shift+y m"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "%yunxiao.configuration.title%",
+      "properties": {
+        "yunxiao.domain": {
+          "type": "string",
+          "default": "openapi-rdc.aliyuncs.com",
+          "description": "%yunxiao.domain.description%",
+          "scope": "application"
+        },
+        "yunxiao.authType": {
+          "type": "string",
+          "enum": ["PAT"],
+          "default": "PAT",
+          "description": "%yunxiao.authType.description%",
+          "scope": "application"
+        },
+        "yunxiao.oauth.clientId": {
+          "type": "string",
+          "default": "",
+          "description": "%yunxiao.oauth.clientId.description%",
+          "scope": "application"
+        },
+        "yunxiao.oauth.clientSecret": {
+          "type": "string",
+          "default": "",
+          "description": "%yunxiao.oauth.clientSecret.description%",
+          "scope": "application"
+        },
+        "yunxiao.autoRefreshToken": {
+          "type": "boolean",
+          "default": true,
+          "description": "%yunxiao.autoRefreshToken.description%",
+          "scope": "application"
+        },
+        "yunxiao.pasteTarget": {
+          "type": "string",
+          "enum": ["commit", "cursor", "clipboard", "input"],
+          "default": "commit",
+          "description": "%yunxiao.pasteTarget.description%",
+          "scope": "window"
+        },
+        "yunxiao.pasteTemplate": {
+          "type": "string",
+          "default": "#{id} {title}",
+          "description": "%yunxiao.pasteTemplate.description%",
+          "scope": "window"
+        },
+        "yunxiao.includeTypeLabel": {
+          "type": "boolean",
+          "default": false,
+          "description": "%yunxiao.includeTypeLabel.description%",
+          "scope": "window"
+        },
+        "yunxiao.includeStatus": {
+          "type": "boolean",
+          "default": false,
+          "description": "%yunxiao.includeStatus.description%",
+          "scope": "window"
+        },
+        "yunxiao.includeLink": {
+          "type": "boolean",
+          "default": false,
+          "description": "%yunxiao.includeLink.description%",
+          "scope": "window"
+        },
+        "yunxiao.projectCacheDuration": {
+          "type": "number",
+          "default": 30,
+          "description": "%yunxiao.projectCacheDuration.description%",
+          "scope": "window"
+        },
+        "yunxiao.workitemCacheDuration": {
+          "type": "number",
+          "default": 10,
+          "description": "%yunxiao.workitemCacheDuration.description%",
+          "scope": "window"
+        },
+        "yunxiao.maxRecentProjects": {
+          "type": "number",
+          "default": 20,
+          "description": "%yunxiao.maxRecentProjects.description%",
+          "scope": "window"
+        },
+        "yunxiao.maxRecentWorkItems": {
+          "type": "number",
+          "default": 50,
+          "description": "%yunxiao.maxRecentWorkItems.description%",
+          "scope": "window"
+        },
+        "yunxiao.enableDebugLog": {
+          "type": "boolean",
+          "default": false,
+          "description": "%yunxiao.enableDebugLog.description%",
+          "scope": "window"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "dev": "webpack --mode development",
+    "watch": "webpack --watch -mode development",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.17.30",
+    "@types/vscode": "^1.60.0",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "node-fetch": "^2.7.0"
+  }
+}

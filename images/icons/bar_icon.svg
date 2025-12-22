@@ -1,0 +1,18 @@
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bar-gradient" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#006ad4" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#006ad4" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd"  transform="translate(1.5, 1.5)">
+    <!-- 简化的X形状 -->
+    <path d="M12.8 12.8 9.1 6.8l3.3-4.5-2.3-1.7L5.5 6.3l4.1 5.4c.3.4.7.6 1.2.6h2z" fill="url(#bar-gradient)" fill-opacity="0.7"/>
+    
+    <!-- 顶部圆点 -->
+    <circle fill="#006ad4" cx="10.4" cy="1.4" r="1.4"/>
+    
+    <!-- 左侧形状 -->
+    <path d="M8.3 6.8 4.1 1.2c-.3-.4-.7-.6-1.2-.6H0l4.7 6.2L.3 12.8h2.9c.5 0 .9-.2 1.2-.6l4-5.4z" fill="#006ad4"/>
+  </g>
+</svg>
