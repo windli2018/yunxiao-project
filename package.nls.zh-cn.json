@@ -35,6 +35,8 @@
   "yunxiao.sendToCopilot.title": "发送到 GitHub Copilot",
   "yunxiao.sendToTrae.title": "发送到 TRAE AI",
   "yunxiao.sendToAI.title": "发送到 AI 助手",
+  "yunxiao.createBranchAndPasteToCommit.title": "新建分支并粘贴到提交记录",
+  "yunxiao.viewWorkItemProperties.title": "查看属性",
   
   "yunxiao.configuration.title": "云效工作项助手配置",
   "yunxiao.domain.description": "云效 API 服务域名",
@@ -63,5 +65,6 @@
   "yunxiao.customAI.openCommand.description": "打开 AI 聊天面板的 VSCode 命令（例如：'workbench.action.chat.open'）",
   "yunxiao.customAI.attachCommand.description": "附加选中内容到聊天的 VSCode 命令（可选，如果不支持则留空，例如：'github.copilot.chat.attachSelection'）",
   "yunxiao.customAI.installUrl.description": "安装 AI 扩展的 URL（例如：'vscode:extension/GitHub.copilot-chat'）",
-  "yunxiao.customAI.template.description": "发送到自定义 AI 的消息模板，支持变量：{type}、{id}、{title}、{description}、{status}、{assignee}、{priority}"
+  "yunxiao.customAI.template.description": "发送到自定义 AI 的消息模板，支持变量：{type}、{id}、{title}、{description}、{status}、{assignee}、{priority}",
+  "yunxiao.branchNameTemplate.description": "新建分支时的命名模板，支持变量：{category}（工作项类型）、{id}（工作项标识符）、{title}（工作项标题）、{date}（当前日期）"
 }

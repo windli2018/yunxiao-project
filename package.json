@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速关联工作项到提交消息",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -215,6 +215,16 @@
         "command": "yunxiao.sendToAI",
         "title": "%yunxiao.sendToAI.title%",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "yunxiao.createBranchAndPasteToCommit",
+        "title": "%yunxiao.createBranchAndPasteToCommit.title%",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "yunxiao.viewWorkItemProperties",
+        "title": "%yunxiao.viewWorkItemProperties.title%",
+        "icon": "$(info)"
       }
     ],
     "menus": {
@@ -267,7 +277,12 @@
           "group": "1_favorite@1"
         },
         {
-          "command": "yunxiao.pasteToCommit",
+          "command": "yunxiao.createBranchAndPasteToCommit",
+          "when": "viewItem == workitem",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "yunxiao.createBranchAndPasteToCommit",
           "when": "viewItem == workitem",
           "group": "inline@1"
         },
@@ -279,17 +294,22 @@
         {
           "command": "yunxiao.pasteToCommit",
           "when": "viewItem == workitem",
-          "group": "2_actions@1"
+          "group": "2_actions@2"
         },
         {
           "command": "yunxiao.openInBrowser",
           "when": "viewItem == workitem",
-          "group": "2_actions@2"
+          "group": "2_actions@3"
+        },
+        {
+          "command": "yunxiao.viewWorkItemProperties",
+          "when": "viewItem == workitem",
+          "group": "2_actions@4"
         },
         {
           "command": "yunxiao.copyToClipboard",
           "when": "viewItem == workitem",
-          "group": "2_actions@3"
+          "group": "2_actions@5"
         },
         {
           "command": "yunxiao.sendToQoder",
@@ -416,7 +436,7 @@
         },
         "yunxiao.pasteTemplate": {
           "type": "string",
-          "default": "#{id} {title}",
+          "default": "{type} #{id} {title}",
           "description": "%yunxiao.pasteTemplate.description%",
           "scope": "window"
         },
@@ -539,6 +559,12 @@
           "type": "string",
           "default": "{type} #{id} {title}\n{description}",
           "description": "%yunxiao.customAI.template.description%",
+          "scope": "window"
+        },
+        "yunxiao.branchNameTemplate": {
+          "type": "string",
+          "default": "{category}_{id}",
+          "description": "%yunxiao.branchNameTemplate.description%",
           "scope": "window"
         }
       }

@@ -3,6 +3,107 @@ const { RecentItemType } = require('../models/types');
 const { CATEGORY_BI_MAP, getCategoryId } = require('../config/workitemTypes');
 
 /**
+ * 根据工作项类型获取对应的图标名称
+ * @param {Object} workitem - 工作项对象
+ * @param {boolean} isRecent - 是否为最近使用列表（影响默认图标）
+ * @returns {string} 图标名称
+ */
+function getWorkItemIconName(workitem, isRecent = false) {
+    const type = (workitem.workitemType || '').toLowerCase();
+    
+    switch (type) {
+        case 'bug':
+        case '缺陷':
+            return 'bug';
+        case 'task':
+        case '任务':
+            return 'check';
+        case 'req':
+        case '需求':
+            return 'lightbulb';
+        case 'risk':
+        case '风险':
+            return 'warning';
+        default:
+            return isRecent ? 'history' : 'circle-outline';
+    }
+}
+
+/**
+ * 根据工作项状态获取带颜色的图标（TreeView 专用）
+ * @param {Object} workitem - 工作项对象
+ * @param {Object} stateManager - 状态管理器（可选）
+ * @param {boolean} isRecent - 是否为最近使用列表
+ * @returns {vscode.ThemeIcon} 带颜色的主题图标
+ */
+function getWorkItemIconWithState(workitem, stateManager = null, isRecent = false) {
+    // 获取图标名称
+    const iconName = getWorkItemIconName(workitem, isRecent);
+    
+    // 根据状态设置图标颜色
+    if (stateManager && workitem.workitemId) {
+        const displayState = stateManager.getDisplayState(workitem.workitemId);
+        
+        if (displayState === 'commit') {
+            // 已粘贴提交记录 - 蓝色
+            return new vscode.ThemeIcon(iconName, new vscode.ThemeColor('charts.blue'));
+        } else if (displayState === 'ai') {
+            // 已发送AI - 绿色
+            return new vscode.ThemeIcon(iconName, new vscode.ThemeColor('charts.green'));
+        }
+    }
+    
+    // 默认颜色
+    return new vscode.ThemeIcon(iconName);
+}
+
+/**
+ * 根据工作项状态获取 Codicon 图标字符串（QuickPick label 前缀专用，使用 VS Code 1.70+ 颜色修饰符语法）
+ * 不显示工作项类型图标，改用状态图标（check系列）表示工作项状态
+ * @param {Object} workitem - 工作项对象
+ * @param {Object} stateManager - 状态管理器（可选）
+ * @param {boolean} isRecent - 是否为最近使用列表
+ * @returns {string} Codicon 图标字符串，例如 '$(circle-filled~blue)' 或 '$(circle-outline~green)'，默认为空
+ */
+function getWorkItemIconLabel(workitem, stateManager = null, isRecent = false) {
+    // 根据状态设置不同的图标和颜色
+    if (stateManager && workitem.workitemId) {
+        const displayState = stateManager.getDisplayState(workitem.workitemId);
+        
+        if (displayState === 'commit') {
+            // 已粘贴提交记录 - 使用蓝色实心圆
+            return '$(circle-filled~blue)';
+        } else if (displayState === 'ai') {
+            // 已发送AI - 使用绿色空心圆
+            return '$(circle-outline~green)';
+        }
+    }
+    
+    // 默认状态 - 无图标
+    return '';
+}
+
+/**
+ * 获取工作项状态的文本描述（用于 tooltip）
+ * @param {Object} workitem - 工作项对象
+ * @param {Object} stateManager - 状态管理器（可选）
+ * @returns {string} 状态描述文本
+ */
+function getWorkItemStateDescription(workitem, stateManager = null) {
+    if (stateManager && workitem.workitemId) {
+        const displayState = stateManager.getDisplayState(workitem.workitemId);
+        
+        if (displayState === 'commit') {
+            return '🔵 已粘贴到提交记录';
+        } else if (displayState === 'ai') {
+            return '🟢 已发送到AI';
+        }
+    }
+    
+    return '⚪ 未处理';
+}
+
+/**
  * 树节点类型
  */
 const TreeItemType = {
@@ -125,10 +226,11 @@ class ProjectsTreeProvider {
  * 工作项树视图提供者
  */
 class WorkItemsTreeProvider {
-    constructor(projectManager, workItemManager, context) {
+    constructor(projectManager, workItemManager, context, stateManager) {
         this.projectManager = projectManager;
         this.workItemManager = workItemManager;
         this.context = context;
+        this.stateManager = stateManager;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         
@@ -199,10 +301,14 @@ class WorkItemsTreeProvider {
             const displayType = element.displayType || workitem.workitemType;
             
             treeItem.description = workitem.status;
+            
+            // 构建增强的tooltip，包含状态信息
+            const stateDesc = this.stateManager ? this.stateManager.getStateDescription(workitem.workitemId) : '';
             treeItem.tooltip = `${workitem.identifier}
 ${workitem.subject}
 类型: ${displayType}
-状态: ${workitem.status}`;
+状态: ${workitem.status}${stateDesc ? '\n\n使用状态:\n' + stateDesc : ''}`;
+            
             treeItem.iconPath = this.getWorkItemIcon(workitem);
             
             treeItem.command = {
@@ -381,22 +487,7 @@ ${workitem.subject}
     }
 
     getWorkItemIcon(workitem) {
-        switch (workitem.workitemType.toLowerCase()) {
-            case 'bug':
-            case '缺陷':
-                return new vscode.ThemeIcon('bug');
-            case 'task':
-            case '任务':
-                return new vscode.ThemeIcon('check');
-            case 'req':
-            case '需求':
-                return new vscode.ThemeIcon('lightbulb');
-            case 'risk':
-            case '风险':
-                return new vscode.ThemeIcon('warning');
-            default:
-                return new vscode.ThemeIcon('circle-outline');
-        }
+        return getWorkItemIconWithState(workitem, this.stateManager, false);
     }
 }
 
@@ -404,8 +495,9 @@ ${workitem.subject}
  * 最近使用树视图提供者
  */
 class RecentTreeProvider {
-    constructor(recentManager) {
+    constructor(recentManager, stateManager) {
         this.recentManager = recentManager;
+        this.stateManager = stateManager;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
     }
@@ -450,13 +542,17 @@ class RecentTreeProvider {
             };
             
             treeItem.description = workitemData.workitemType || '';
+            
+            // 构建增强的tooltip
+            const stateDesc = this.stateManager ? this.stateManager.getStateDescription(workitemData.workitemId) : '';
             treeItem.tooltip = `工作项：${workitemData.identifier}
 标题：${workitemData.subject}
 类型：${workitemData.workitemType}
 状态：${workitemData.status}
 使用次数: ${recentItem.useCount}
-最后使用: ${new Date(recentItem.lastUsedAt).toLocaleString('zh-CN')}`;
-            treeItem.iconPath = new vscode.ThemeIcon('history');
+最后使用: ${new Date(recentItem.lastUsedAt).toLocaleString('zh-CN')}${stateDesc ? '\n\n使用状态:\n' + stateDesc : ''}`;
+            
+            treeItem.iconPath = this.getWorkItemIcon(workitemData);
             
             // 重要：设置 contextValue 为 'workitem' 以支持右键菜单
             treeItem.contextValue = 'workitem';
@@ -551,16 +647,21 @@ class RecentTreeProvider {
 
         return items;
     }
+    
+    getWorkItemIcon(workitem) {
+        return getWorkItemIconWithState(workitem, this.stateManager, true);
+    }
 }
 
 /**
  * 搜索树视图提供者
  */
 class SearchTreeProvider {
-    constructor(projectManager, workItemManager, recentManager) {
+    constructor(projectManager, workItemManager, recentManager, stateManager) {
         this.projectManager = projectManager;
         this.workItemManager = workItemManager;
         this.recentManager = recentManager;
+        this.stateManager = stateManager;
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         
@@ -625,10 +726,13 @@ class SearchTreeProvider {
             
             treeItem.contextValue = 'workitem';
             treeItem.description = `${displayType} - ${workitem.status}`;
+            
+            // 构建增强的tooltip
+            const stateDesc = this.stateManager ? this.stateManager.getStateDescription(workitem.workitemId) : '';
             treeItem.tooltip = `${workitem.identifier}
 ${workitem.subject}
 类型: ${displayType}
-状态: ${workitem.status}`;
+状态: ${workitem.status}${stateDesc ? '\n\n使用状态:\n' + stateDesc : ''}`;
             treeItem.iconPath = this.getWorkItemIcon(workitem);
             
             treeItem.command = {
@@ -724,23 +828,8 @@ ${workitem.subject}
      * 获取工作项图标
      */
     getWorkItemIcon(workitem) {
-        switch (workitem.workitemType.toLowerCase()) {
-            case 'bug':
-            case '缺陷':
-                return new vscode.ThemeIcon('bug');
-            case 'task':
-            case '任务':
-                return new vscode.ThemeIcon('check');
-            case 'req':
-            case '需求':
-                return new vscode.ThemeIcon('lightbulb');
-            case 'risk':
-            case '风险':
-                return new vscode.ThemeIcon('warning');
-            default:
-                return new vscode.ThemeIcon('circle-outline');
-        }
+        return getWorkItemIconWithState(workitem, this.stateManager, false);
     }
 }
 
-module.exports = { ProjectsTreeProvider, WorkItemsTreeProvider, RecentTreeProvider, SearchTreeProvider };
+module.exports = { ProjectsTreeProvider, WorkItemsTreeProvider, RecentTreeProvider, SearchTreeProvider, getWorkItemIconName, getWorkItemIconWithState, getWorkItemIconLabel, getWorkItemStateDescription };

@@ -7,7 +7,9 @@ const { CacheManager } = require('./managers/cacheManager');
 const { ProjectManager } = require('./managers/projectManager');
 const { WorkItemManager } = require('./managers/workItemManager');
 const { RecentManager } = require('./managers/recentManager');
-const { ProjectsTreeProvider, WorkItemsTreeProvider, RecentTreeProvider, SearchTreeProvider } = require('./views/treeViewProviders');
+const { WorkItemStateManager } = require('./managers/workItemStateManager');
+const { ProjectsTreeProvider, WorkItemsTreeProvider, RecentTreeProvider, SearchTreeProvider, getWorkItemIconName, getWorkItemIconWithState, getWorkItemIconLabel, getWorkItemStateDescription } = require('./views/treeViewProviders');
+const { getWorkItemPropertiesHtml } = require('./views/workItemPropertiesWebView');
 const { RecentItemType } = require('./models/types');
 const { getCategoryName } = require('./config/workitemTypes');
 
@@ -17,6 +19,7 @@ let cacheManager;
 let projectManager;
 let workItemManager;
 let recentManager;
+let stateManager;
 let statusBarItem;
 
 let projectsTreeProvider;
@@ -273,6 +276,14 @@ async function sendToAIChat(workitem, config) {
     recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
     recentTreeProvider.refresh();
     
+    // 4. 记录状态
+    if (stateManager && item.workitemId) {
+        stateManager.markSentToAI(item.workitemId);
+        workItemsTreeProvider.refresh();
+        recentTreeProvider.refresh();
+        searchTreeProvider.refresh();
+    }
+    
     // 4. 检查扩展是否安装（如果提供了 extensionId）
     if (config.extensionId && config.extensionId.trim() !== '') {
         const extension = vscode.extensions.getExtension(config.extensionId);
@@ -393,6 +404,7 @@ async function activate(context) {
     projectManager = new ProjectManager(context, apiClient, cacheManager);
     workItemManager = new WorkItemManager(context, apiClient, cacheManager);
     recentManager = new RecentManager(context);
+    stateManager = new WorkItemStateManager(context);
 
     // 初始化认证（会自动恢复之前的登录状态）
     await authManager.initialize();
@@ -401,9 +413,9 @@ async function activate(context) {
     await checkIDEEnvironment();
 
     projectsTreeProvider = new ProjectsTreeProvider(projectManager, authManager);
-    workItemsTreeProvider = new WorkItemsTreeProvider(projectManager, workItemManager, context);
-    recentTreeProvider = new RecentTreeProvider(recentManager);
-    searchTreeProvider = new SearchTreeProvider(projectManager, workItemManager, recentManager);
+    workItemsTreeProvider = new WorkItemsTreeProvider(projectManager, workItemManager, context, stateManager);
+    recentTreeProvider = new RecentTreeProvider(recentManager, stateManager);
+    searchTreeProvider = new SearchTreeProvider(projectManager, workItemManager, recentManager, stateManager);
 
     vscode.window.registerTreeDataProvider('yunxiao.projects', projectsTreeProvider);
     vscode.window.registerTreeDataProvider('yunxiao.workitems', workItemsTreeProvider);
@@ -725,8 +737,106 @@ function registerCommands(context) {
         vscode.commands.registerCommand('yunxiao.pasteToCommit', async (workitem, sourceControl) => {
             if (workitem) {
                 await pasteToCommit(workitem, sourceControl);
-                recentManager.addItem(workitem.workitemId, RecentItemType.WorkItem, workitem);
+                
+                // 记录状态
+                const item = workitem.data?.data || workitem.data || workitem;
+                if (item.workitemId) {
+                    stateManager.markPastedToCommit(item.workitemId);
+                    workItemsTreeProvider.refresh();
+                    recentTreeProvider.refresh();
+                    searchTreeProvider.refresh();
+                }
+                
+                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
                 recentTreeProvider.refresh();
+            }
+        }),
+        
+        vscode.commands.registerCommand('yunxiao.createBranchAndPasteToCommit', async (workitem, sourceControl) => {
+            if (!workitem) {
+                return;
+            }
+            
+            try {
+                const item = workitem.data?.data || workitem.data || workitem;
+                
+                // 获取Git扩展
+                const gitExtension = vscode.extensions.getExtension('vscode.git');
+                if (!gitExtension) {
+                    vscode.window.showWarningMessage('Git 扩展未安装，无法创建分支', '确定');
+                    return;
+                }
+                
+                const git = gitExtension.exports.getAPI(1);
+                if (!git || !git.repositories || git.repositories.length === 0) {
+                    vscode.window.showWarningMessage('当前工作区未初始化Git仓库，无法创建分支', '确定');
+                    return;
+                }
+                
+                // 获取仓库
+                let repository = git.repositories[0];
+                if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
+                    const activeUri = vscode.window.activeTextEditor.document.uri;
+                    const repo = git.getRepository(activeUri);
+                    if (repo) {
+                        repository = repo;
+                    }
+                }
+                
+                // 生成分支名称
+                const branchName = await generateBranchName(item);
+                
+                // 检查分支是否已存在
+                const branches = await repository.getBranches({ remote: false });
+                const branchExists = branches.some(b => b.name === branchName);
+                const currentBranch = await repository.getBranch(repository.state.HEAD?.name || 'HEAD');
+                const isCurrentBranch = currentBranch.name === branchName;
+                
+                if (branchExists && !isCurrentBranch) {
+                    // 分支已存在但非当前分支，处理切换逻辑
+                    const switched = await handleBranchSwitch(repository, branchName);
+                    if (!switched) {
+                        return;  // 用户取消了切换
+                    }
+                } else if (!branchExists) {
+                    // 检查工作区状态
+                    const hasChanges = repository.state.workingTreeChanges.length > 0 || 
+                                     repository.state.indexChanges.length > 0;
+                    
+                    if (hasChanges) {
+                        const answer = await vscode.window.showWarningMessage(
+                            `当前分支有未提交的修改，创建新分支会基于当前版本（包含这些修改）。`,
+                            '继续创建',
+                            '取消'
+                        );
+                        
+                        if (answer !== '继续创建') {
+                            return;
+                        }
+                    }
+                    
+                    // 创建并切换到新分支
+                    await repository.createBranch(branchName, true);
+                    vscode.window.showInformationMessage(`已创建并切换到分支: ${branchName}`);
+                }
+                
+                // 粘贴到提交消息
+                await pasteToCommit(workitem, sourceControl);
+                
+                // 记录状态
+                if (item.workitemId) {
+                    stateManager.markPastedToCommit(item.workitemId, branchName);
+                    workItemsTreeProvider.refresh();
+                    recentTreeProvider.refresh();
+                    searchTreeProvider.refresh();
+                }
+                
+                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
+                recentTreeProvider.refresh();
+                
+            } catch (error) {
+                console.error('创建分支失败:', error);
+                vscode.window.showErrorMessage(`创建分支失败: ${error.message}`);
             }
         }),
 
@@ -1066,6 +1176,96 @@ function registerCommands(context) {
             } catch (error) {
                 console.error('发送到 AI 助手失败:', error);
                 vscode.window.showErrorMessage(`发送失败: ${error.message}`);
+            }
+        }),
+        
+        vscode.commands.registerCommand('yunxiao.viewWorkItemProperties', async (item) => {
+            try {
+                const workitem = item.data?.data || item.data || item;
+                
+                // 创建WebView Panel
+                const panel = vscode.window.createWebviewPanel(
+                    'workItemProperties',
+                    `工作项属性 - #${workitem.identifier}`,
+                    vscode.ViewColumn.One,
+                    {
+                        enableScripts: true,
+                        retainContextWhenHidden: true,
+                        // 允许加载外部资源（图片等）
+                        localResourceRoots: [],
+                        // 不限制外部资源加载
+                        portMapping: []
+                    }
+                );
+                
+                // 立即显示基础信息（从缓存数据）
+                panel.webview.html = getWorkItemPropertiesHtml(workitem, null, stateManager);
+                
+                // 异步加载完整详情
+                try {
+                    const details = await workItemManager.getWorkItem(workitem.workitemId);
+                    panel.webview.html = getWorkItemPropertiesHtml(workitem, details, stateManager);
+                } catch (error) {
+                    panel.webview.html = getWorkItemPropertiesHtml(workitem, { error: error.message }, stateManager);
+                }
+                
+                // 处理WebView消息
+                panel.webview.onDidReceiveMessage(
+                    async message => {
+                        switch (message.command) {
+                            case 'createBranch':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.createBranchAndPasteToCommit', item);
+                                break;
+                            case 'pasteToCommit':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.pasteToCommit', item);
+                                break;
+                            case 'openInBrowser':
+                                await vscode.commands.executeCommand('yunxiao.openInBrowser', item);
+                                break;
+                            case 'copyToClipboard':
+                                await vscode.commands.executeCommand('yunxiao.copyToClipboard', item);
+                                break;
+                            case 'sendToQoder':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToQoder', item);
+                                break;
+                            case 'sendToTraeIDE':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToTraeIDE', item);
+                                break;
+                            case 'sendToTongyi':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToTongyi', item);
+                                break;
+                            case 'sendToCopilot':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToCopilot', item);
+                                break;
+                            case 'sendToTrae':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToTrae', item);
+                                break;
+                            case 'sendToAI':
+                                panel.dispose();
+                                await vscode.commands.executeCommand('yunxiao.sendToAI', item);
+                                break;
+                            case 'removeFromRecent':
+                                await vscode.commands.executeCommand('yunxiao.removeFromRecent', item);
+                                panel.dispose();
+                                break;
+                            case 'close':
+                                panel.dispose();
+                                break;
+                        }
+                    },
+                    undefined,
+                    context.subscriptions
+                );
+                
+            } catch (error) {
+                vscode.window.showErrorMessage(`打开工作项属性失败: ${error.message}`);
             }
         }),
 
@@ -1435,9 +1635,9 @@ function registerCommands(context) {
                 quickPick.buttons = [clearButton];
                 
                 // 定义工作项的操作按钮
-                const pasteToCommitButton = {
-                    iconPath: new vscode.ThemeIcon('insert'),
-                    tooltip: '粘贴到提交消息'
+                const createBranchButton = {
+                    iconPath: new vscode.ThemeIcon('git-branch'),
+                    tooltip: '新建分支并粘贴到提交消息'
                 };
                 const openInBrowserButton = {
                     iconPath: new vscode.ThemeIcon('link-external'),
@@ -1486,15 +1686,36 @@ function registerCommands(context) {
                     recentWorkItems.forEach((item, index) => {
                         const workitem = item.data;
                         if (workitem) {
+                            // 使用通用函数获取带状态颜色的图标
+                            const iconPath = getWorkItemIconWithState(workitem, stateManager, true);
+                            // 获取 Codicon 图标字符串（label 前缀）
+                            const iconLabel = getWorkItemIconLabel(workitem, stateManager, true);
+                            // 获取状态描述文本
+                            const stateDesc = getWorkItemStateDescription(workitem, stateManager);
+                            
                             // 添加序号前缀（从01开始），保持排序
                             const indexPrefix = String(index + 1).padStart(indexWidth, '0');
+                            // 如果有图标标签，在后面加空格；否则直接使用序号
+                            const label = iconLabel ? `${iconLabel} ${indexPrefix}. #${workitem.identifier} ${workitem.subject}` : `${indexPrefix}. #${workitem.identifier} ${workitem.subject}`;
+                            
+                            // 构建 tooltip
+                            const tooltip = `${workitem.identifier}: ${workitem.subject}
+
+状态: ${stateDesc}
+类型: ${workitem.workitemType}
+当前状态: ${workitem.status}
+项目: ${currentProject.projectName}
+使用次数: ${item.useCount}`;
+                            
                             recentItems.push({
-                                label: `${indexPrefix}. #${workitem.identifier} ${workitem.subject}`,
+                                label: label,
                                 description: `${workitem.workitemType} - ${workitem.status}`,
                                 detail: `项目: ${currentProject.projectName} | 使用 ${item.useCount} 次`,
+                                tooltip: tooltip,
+                                iconPath: iconPath,
                                 workitem: workitem,
                                 isRecent: true,
-                                buttons: [pasteToCommitButton, openInBrowserButton, copyToClipboardButton]
+                                buttons: [createBranchButton, openInBrowserButton, copyToClipboardButton]
                             });
                         }
                     });
@@ -1600,15 +1821,35 @@ function registerCommands(context) {
                                 const indexWidth = String(results.length + 1).length;
                                 
                                 results.forEach((w, index) => {
+                                    // 使用通用函数获取带状态颜色的图标
+                                    const iconPath = getWorkItemIconWithState(w, stateManager, false);
+                                    // 获取 Codicon 图标字符串（label 前缀）
+                                    const iconLabel = getWorkItemIconLabel(w, stateManager, false);
+                                    // 获取状态描述文本
+                                    const stateDesc = getWorkItemStateDescription(w, stateManager);
+                                    
                                     // 添加序号前缀（从01开始），保持创建时间倒序
                                     const indexPrefix = String(index + 1).padStart(indexWidth, '0');
+                                    // 如果有图标标签，在后面加空格；否则直接使用序号
+                                    const label = iconLabel ? `${iconLabel} ${indexPrefix}. #${w.identifier} ${w.subject}` : `${indexPrefix}. #${w.identifier} ${w.subject}`;
+                                    
+                                    // 构建 tooltip
+                                    const tooltip = `${w.identifier}: ${w.subject}
+
+状态: ${stateDesc}
+类型: ${w.workitemType}
+当前状态: ${w.status}
+项目: ${currentProject.projectName}`;
+                                    
                                     searchItems.push({
-                                        label: `${indexPrefix}. #${w.identifier} ${w.subject}`,
+                                        label: label,
                                         description: `${w.workitemType} - ${w.status}`,
                                         detail: `项目: ${currentProject.projectName}`,
+                                        tooltip: tooltip,
+                                        iconPath: iconPath,
                                         workitem: w,
                                         isRecent: false,
-                                        buttons: [pasteToCommitButton, openInBrowserButton, copyToClipboardButton]
+                                        buttons: [createBranchButton, openInBrowserButton, copyToClipboardButton]
                                     });
                                 });
                                 
@@ -1671,11 +1912,11 @@ function registerCommands(context) {
                     
                     if (!item.workitem) return;
                     
-                    if (button === pasteToCommitButton) {
-                        // 粘贴到提交消息，传递 sourceControl 上下文
+                    if (button === createBranchButton) {
+                        // 新建分支并粘贴到提交消息
                         recentManager.addItem(item.workitem.workitemId, RecentItemType.WorkItem, item.workitem);
                         recentTreeProvider.refresh();
-                        await pasteToCommit(item.workitem, sourceControl);
+                        await vscode.commands.executeCommand('yunxiao.createBranchAndPasteToCommit', item.workitem, sourceControl);
                         quickPick.hide();
                     } else if (button === openInBrowserButton) {
                         // 在浏览器中打开
@@ -1885,13 +2126,33 @@ async function pasteToCommit(workitem, sourceControl) {
 }
 
 /**
+ * 统一的模板替换函数
+ * 使用对象映射方式替换模板中的变量，避免多次 replace 调用
+ * @param {string} template - 模板字符串，如 "{type}_{id}_{title}"
+ * @param {Object} variables - 变量对象，如 {type: 'Bug', id: '123', title: '登录'}
+ * @param {Function} sanitize - 可选的清理函数，对所有变量值进行清理
+ * @returns {string} 替换后的字符串
+ */
+function replaceTemplate(template, variables, sanitize) {
+    return template.replace(/\{(\w+)\}/g, (match, key) => {
+        let value = variables[key] !== undefined && variables[key] !== null ? String(variables[key]) : '';
+        // 如果提供了清理函数，对值进行清理
+        if (sanitize && typeof sanitize === 'function') {
+            value = sanitize(value);
+        }
+        return value;
+    });
+}
+
+/**
  * 统一的工作项格式化函数
  * @param {Object} workitem - 工作项对象
  * @param {string} templateKey - 模板配置项（默认: 'pasteTemplate'）
  * @param {string} defaultTemplate - 默认模板
+ * @param {Function} sanitize - 可选的清理函数，对所有变量值进行清理（如分支命名需要移除非法字符）
  * @returns {Promise<string>} 格式化后的文本
  */
-async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTemplate = '#{id} {title}') {
+async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTemplate = '{type} #{id} {title}', sanitize = null) {
     const config = vscode.workspace.getConfiguration('yunxiao');
     const template = config.get(templateKey, defaultTemplate);
     
@@ -1916,16 +2177,25 @@ async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTe
         descriptionText = convertDescriptionToText(item.description);
     }
     
-    // 使用正则表达式全局替换，支持多次出现
-    return template
-        .replace(/\{id\}/g, item.identifier || '')
-        .replace(/\{title\}/g, item.subject || '')
-        .replace(/\{description\}/g, descriptionText)
-        .replace(/\{workitemType\}/g, item.workitemType || '')
-        .replace(/\{type\}/g, item.workitemType || '')
-        .replace(/\{status\}/g, item.status || '')
-        .replace(/\{assignedTo\}/g, item.assignedTo?.name || '')
-        .replace(/\{category\}/g, item.category || '');
+    // 获取当前日期（用于分支命名等场景）
+    const now = new Date();
+    const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    
+    // 构建变量映射对象
+    const variables = {
+        id: item.identifier || '',
+        title: item.subject || '',
+        description: descriptionText,
+        workitemType: item.workitemType || '',
+        type: item.workitemType || '',
+        status: item.status || '',
+        assignedTo: item.assignedTo?.name || '',
+        category: item.category || item.workitemType || '',
+        date: date
+    };
+    
+    // 使用统一的模板替换函数（如果提供了清理函数，则对所有变量值进行清理）
+    return replaceTemplate(template, variables, sanitize);
 }
 
 /**
@@ -2197,6 +2467,77 @@ async function handleTimeRangeFilter(filters, type) {
         } else {
             filters[filterKey] = selected.value;
         }
+    }
+}
+
+/**
+ * 清理分支名称中的非法字符
+ * @param {string} value - 原始值
+ * @returns {string} 清理后的值
+ */
+function sanitizeBranchName(value) {
+    return (value || '')
+        .replace(/[\\/:*?"<>|\s]+/g, '_')  // 替换非法字符为下划线
+        .replace(/_+/g, '_')  // 多个下划线合并为一个
+        .replace(/^_|_$/g, '')  // 移除开头和结尾的下划线
+        .substring(0, 50);  // 限制长度
+}
+
+/**
+ * 生成分支名称
+ * 复用 formatWorkItem 的逻辑，确保变量一致性
+ * @param {Object} workitem - 工作项数据
+ * @returns {Promise<string>} 分支名称
+ */
+async function generateBranchName(workitem) {
+    // 直接复用 formatWorkItem，传入分支命名模板和清理函数
+    const branchName = await formatWorkItem(
+        workitem,
+        'branchNameTemplate',
+        '{category}_{id}',
+        sanitizeBranchName  // 传入清理函数，对所有变量值进行清理
+    );
+    
+    return branchName;
+}
+
+/**
+ * 处理分支切换逻辑 - 安全策略：不自动切换，只提示用户
+ * @param {Object} repository - Git仓库对象
+ * @param {string} branchName - 目标分支名称
+ * @returns {Promise<boolean>} 是否成功切换
+ */
+async function handleBranchSwitch(repository, branchName) {
+    // 检查工作区状态
+    const hasUnstagedChanges = repository.state.workingTreeChanges.length > 0;
+    const hasStagedChanges = repository.state.indexChanges.length > 0;
+    const hasChanges = hasUnstagedChanges || hasStagedChanges;
+    
+    if (hasChanges) {
+        // 有未保存修改，不允许切换
+        vscode.window.showWarningMessage(
+            `无法切换到分支 '${branchName}'：当前分支有未提交的修改。\n\n` +
+            `请先处理当前修改（提交或暂存），然后手动切换到该分支。`,
+            { modal: true },
+            '打开源代码管理'
+        ).then(selection => {
+            if (selection === '打开源代码管理') {
+                vscode.commands.executeCommand('workbench.view.scm');
+            }
+        });
+        return false;
+    } else {
+        // 无修改，也不自动切换，只提示用户
+        vscode.window.showInformationMessage(
+            `分支 '${branchName}' 已存在。\n\n` +
+            `如需切换，请手动在源代码管理中切换分支。`,
+            '打开源代码管理'
+        ).then(selection => {
+            if (selection === '打开源代码管理') {
+                vscode.commands.executeCommand('workbench.view.scm');
+            }
+        });
+        return false;
     }
 }
 
