@@ -708,9 +708,9 @@ function registerCommands(context) {
             }
         }),
 
-        vscode.commands.registerCommand('yunxiao.pasteToCommit', async (workitem) => {
+        vscode.commands.registerCommand('yunxiao.pasteToCommit', async (workitem, sourceControl) => {
             if (workitem) {
-                await pasteToCommit(workitem);
+                await pasteToCommit(workitem, sourceControl);
                 recentManager.addItem(workitem.workitemId, RecentItemType.WorkItem, workitem);
                 recentTreeProvider.refresh();
             }
@@ -1386,7 +1386,7 @@ function registerCommands(context) {
             }
         }),
 
-        vscode.commands.registerCommand('yunxiao.quickSearchFromSCM', async () => {
+        vscode.commands.registerCommand('yunxiao.quickSearchFromSCM', async (sourceControl) => {
             try {
                 await ensureAuthenticated();
                 const currentProject = projectManager.getCurrentProject();
@@ -1659,10 +1659,10 @@ function registerCommands(context) {
                     if (!item.workitem) return;
                     
                     if (button === pasteToCommitButton) {
-                        // 粘贴到提交消息
+                        // 粘贴到提交消息，传递 sourceControl 上下文
                         recentManager.addItem(item.workitem.workitemId, RecentItemType.WorkItem, item.workitem);
                         recentTreeProvider.refresh();
-                        await pasteToCommit(item.workitem);
+                        await pasteToCommit(item.workitem, sourceControl);
                         quickPick.hide();
                     } else if (button === openInBrowserButton) {
                         // 在浏览器中打开
@@ -1701,8 +1701,8 @@ function registerCommands(context) {
                         recentManager.addItem(selected.workitem.workitemId, RecentItemType.WorkItem, selected.workitem);
                         recentTreeProvider.refresh();
                         
-                        // 粘贴到提交消息
-                        await pasteToCommit(selected.workitem);
+                        // 粘贴到提交消息，传递 sourceControl 上下文
+                        await pasteToCommit(selected.workitem, sourceControl);
                         
                         quickPick.hide();
                     }
@@ -1802,7 +1802,7 @@ async function ensureAuthenticated() {
     }
 }
 
-async function pasteToCommit(workitem) {
+async function pasteToCommit(workitem, sourceControl) {
     const text = await formatWorkItem(workitem);
     const config = vscode.workspace.getConfiguration('yunxiao');
     const pasteTarget = config.get('pasteTarget', 'commit');
@@ -1813,15 +1813,30 @@ async function pasteToCommit(workitem) {
         if (gitExtension) {
             const git = gitExtension.exports.getAPI(1);
             if (git && git.repositories && git.repositories.length > 0) {
-                // 获取当前工作区的 Git 仓库
-                let repository = git.repositories[0];
+                let repository;
                 
-                // 如果有多个仓库，尝试找到当前文件所在的仓库
-                if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
-                    const activeUri = vscode.window.activeTextEditor.document.uri;
-                    const repo = git.getRepository(activeUri);
-                    if (repo) {
-                        repository = repo;
+                // 优先使用传入的 sourceControl 参数（从 SCM 输入框上下文传递）
+                if (sourceControl && sourceControl.rootUri) {
+                    // 根据 rootUri 找到对应的仓库
+                    repository = git.repositories.find(repo => 
+                        repo.rootUri.toString() === sourceControl.rootUri.toString()
+                    );
+                    console.log('使用 SCM 上下文指定的仓库:', sourceControl.rootUri.toString());
+                }
+                
+                // 如果没有 sourceControl 或找不到对应仓库，使用原有逻辑
+                if (!repository) {
+                    // 获取当前工作区的 Git 仓库
+                    repository = git.repositories[0];
+                    
+                    // 如果有多个仓库，尝试找到当前文件所在的仓库
+                    if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
+                        const activeUri = vscode.window.activeTextEditor.document.uri;
+                        const repo = git.getRepository(activeUri);
+                        if (repo) {
+                            repository = repo;
+                            console.log('使用当前活动编辑器所在的仓库');
+                        }
                     }
                 }
                 
