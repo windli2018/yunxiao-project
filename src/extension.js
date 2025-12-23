@@ -1824,12 +1824,12 @@ async function pasteToCommit(workitem, sourceControl) {
                     console.log('使用 SCM 上下文指定的仓库:', sourceControl.rootUri.toString());
                 }
                 
-                // 如果没有 sourceControl 或找不到对应仓库，使用原有逻辑
+                // 如果没有从 sourceControl 找到，则使用智能回退逻辑
                 if (!repository) {
                     // 获取当前工作区的 Git 仓库
                     repository = git.repositories[0];
                     
-                    // 如果有多个仓库，尝试找到当前文件所在的仓库
+                    // 如果有多个仓库，尝试找到当前活动编辑器所在的仓库
                     if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
                         const activeUri = vscode.window.activeTextEditor.document.uri;
                         const repo = git.getRepository(activeUri);
@@ -1840,8 +1840,14 @@ async function pasteToCommit(workitem, sourceControl) {
                     }
                 }
                 
+                // 检查当前提交消息是否已包含相同内容
+                let currentMessage = repository.inputBox.value;
+                if (currentMessage.includes(text)) {
+                    vscode.window.showInformationMessage('提交消息中已包含此工作项信息');
+                    return;
+                }
+                
                 // 设置提交消息
-                const currentMessage = repository.inputBox.value;
                 repository.inputBox.value = text + (currentMessage ? '\n\n' + currentMessage : '');
                 
                 // 聚焦到 SCM 视图
