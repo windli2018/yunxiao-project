@@ -32,7 +32,7 @@ azure-pipelines.yml
 
 # 项目相关文档和临时文件
 .qoder/
-doc/screenshots/
+doc/
 .editorconfig
 .eslintrc*
 .prettierrc*
