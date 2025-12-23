@@ -29,6 +29,7 @@
   "yunxiao.showStatusBarMenu.title": "Yunxiao: Show Menu",
   "yunxiao.workItemQuickFilter.title": "Filter Work Items",
   "yunxiao.clearWorkItemFilter.title": "Clear Filter",
+  "yunxiao.sendToTongyi.title": "Send to Tongyi Lingma",
   
   "yunxiao.configuration.title": "Yunxiao Work Item Helper Configuration",
   "yunxiao.domain.description": "Yunxiao API service domain",
@@ -45,5 +46,6 @@
   "yunxiao.workitemCacheDuration.description": "Work item list cache duration (minutes)",
   "yunxiao.maxRecentProjects.description": "Maximum recent projects count",
   "yunxiao.maxRecentWorkItems.description": "Maximum recent work items count",
-  "yunxiao.enableDebugLog.description": "Enable debug logging"
+  "yunxiao.enableDebugLog.description": "Enable debug logging",
+  "yunxiao.tongyiTemplate.description": "Message template for sending to Tongyi Lingma, supports variables: {id}, {title}, {description}, {type}, {status}"
 }

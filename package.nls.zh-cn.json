@@ -29,6 +29,7 @@
   "yunxiao.showStatusBarMenu.title": "云效：显示菜单",
   "yunxiao.workItemQuickFilter.title": "过滤工作项",
   "yunxiao.clearWorkItemFilter.title": "清除过滤",
+  "yunxiao.sendToTongyi.title": "发送到通义灵码",
   
   "yunxiao.configuration.title": "云效工作项助手配置",
   "yunxiao.domain.description": "云效 API 服务域名",
@@ -45,5 +46,6 @@
   "yunxiao.workitemCacheDuration.description": "工作项列表缓存时长（分钟）",
   "yunxiao.maxRecentProjects.description": "最近使用项目数量上限",
   "yunxiao.maxRecentWorkItems.description": "最近使用工作项数量上限",
-  "yunxiao.enableDebugLog.description": "启用调试日志输出"
+  "yunxiao.enableDebugLog.description": "启用调试日志输出",
+  "yunxiao.tongyiTemplate.description": "发送到通义灵码的消息模板，支持变量：{id}、{title}、{description}、{type}、{status}"
 }

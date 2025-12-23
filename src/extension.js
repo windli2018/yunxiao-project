@@ -532,8 +532,73 @@ function registerCommands(context) {
         }),
 
         vscode.commands.registerCommand('yunxiao.copyToClipboard', async (workitem) => {
-            await vscode.env.clipboard.writeText(formatWorkItem(workitem));
+            await vscode.env.clipboard.writeText(await formatWorkItem(workitem));
             vscode.window.showInformationMessage('已复制到剪贴板');
+        }),
+
+        vscode.commands.registerCommand('yunxiao.sendToTongyi', async (workitem) => {
+            try {
+                // 获取工作项数据（统一处理）
+                const item = workitem.data?.data || workitem.data || workitem;
+                        
+                if (!item || !item.identifier) {
+                    vscode.window.showErrorMessage('无法获取工作项信息');
+                    return;
+                }
+                        
+                // 使用统一的格式化函数，指定通义模板
+                // formatWorkItem 会自动检测模板是否需要 description 并自动获取
+                const message = await formatWorkItem(
+                    workitem, 
+                    'tongyiTemplate', 
+                    '{type} #{id} {title}\n{description}'
+                );
+
+                   // 将消息复制到剪贴板，用户可以直接粘贴
+                await vscode.env.clipboard.writeText(message);
+                        
+                // 添加到最近使用
+                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
+                recentTreeProvider.refresh();
+             
+                        
+                // 尝试打开通义灵码并发送消息
+                const tongyiExtension = vscode.extensions.getExtension('Alibaba-Cloud.tongyi-lingma');
+                        
+                if (!tongyiExtension) {
+                    // 通义灵码未安装，提示用户
+                    const choice = await vscode.window.showWarningMessage(
+                        '未检测到通义灵码扩展。请先安装通义灵码。',
+                        '前往安装',
+                        '复制消息到剪贴板'
+                    );
+                            
+                    if (choice === '前往安装') {
+                        vscode.env.openExternal(vscode.Uri.parse('vscode:extension/Alibaba-Cloud.tongyi-lingma'));
+                    } else if (choice === '复制消息到剪贴板') {
+                        await vscode.env.clipboard.writeText(message);
+                        vscode.window.showInformationMessage('已复制到剪贴板');
+                    }
+                    return;
+                }
+                        
+                // 确保扩展已激活
+                if (!tongyiExtension.isActive) {
+                    await tongyiExtension.activate();
+                }
+                        
+                // 打开通义灵码聊天面板
+                await vscode.commands.executeCommand('tongyi.show.panel.chat');
+                                   
+                // 提示用户 - 说明技术限制
+                vscode.window.showInformationMessage(
+                    `✅ 已打开通义灵码并复制工作项信息到剪贴板\n\n💡 通义灵码暂未提供直接发送消息的 API，需要手动粘贴（Ctrl+V）\n我们会持续关注更新，如有 API 支持将第一时间优化！`
+                );
+                        
+            } catch (error) {
+                console.error('发送到通义灵码失败:', error);
+                vscode.window.showErrorMessage(`发送失败: ${error.message}`);
+            }
         }),
 
         vscode.commands.registerCommand('yunxiao.searchWorkItems', async () => {
@@ -732,9 +797,9 @@ function registerCommands(context) {
         }),
 
         vscode.commands.registerCommand('yunxiao.removeFromRecent', async (item) => {
-            // 从item.id 提取类型和 ID
+            // 从 item.id 提取类型和 ID
             let itemId, itemType;
-            
+                    
             if (item.id && item.id.startsWith('recent-')) {
                 const parts = item.id.split(':');
                 if (parts[0] === 'recent-project') {
@@ -743,6 +808,9 @@ function registerCommands(context) {
                 } else if (parts[0] === 'recent-workitem') {
                     itemId = parts[1];
                     itemType = RecentItemType.WorkItem;
+                } else if (parts[0] === 'recent-search') {
+                    itemId = parts[1];
+                    itemType = RecentItemType.SearchKeyword;
                 }
             } else {
                 // 直接从 data 中提取
@@ -757,9 +825,15 @@ function registerCommands(context) {
                     itemType = RecentItemType.Project;
                 }
             }
-            
+                    
             if (itemId && itemType) {
-                const typeName = itemType === RecentItemType.Project ? '项目' : '工作项';
+                let typeName = '项目';
+                if (itemType === RecentItemType.WorkItem) {
+                    typeName = '工作项';
+                } else if (itemType === RecentItemType.SearchKeyword) {
+                    typeName = '搜索历史';
+                }
+                        
                 recentManager.removeItem(itemId, itemType);
                 recentTreeProvider.refresh();
                 vscode.window.showInformationMessage(`已从最近使用中移除${typeName}`);
@@ -1274,7 +1348,7 @@ async function ensureAuthenticated() {
 }
 
 async function pasteToCommit(workitem) {
-    const text = formatWorkItem(workitem);
+    const text = await formatWorkItem(workitem);
     const config = vscode.workspace.getConfiguration('yunxiao');
     const pasteTarget = config.get('pasteTarget', 'commit');
     
@@ -1321,17 +1395,164 @@ async function pasteToCommit(workitem) {
         });
 }
 
-function formatWorkItem(workitem) {
+/**
+ * 统一的工作项格式化函数
+ * @param {Object} workitem - 工作项对象
+ * @param {string} templateKey - 模板配置项（默认: 'pasteTemplate'）
+ * @param {string} defaultTemplate - 默认模板
+ * @returns {Promise<string>} 格式化后的文本
+ */
+async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTemplate = '#{id} {title}') {
     const config = vscode.workspace.getConfiguration('yunxiao');
-    const template = config.get('pasteTemplate', '#{id} {title}');
-    workitem = workitem.data || workitem;
-    return template.replace('{id}', workitem.identifier)
-            .replace('{title}', workitem.subject)
-            .replace('{description}', workitem.description)
-            .replace('{workitemType}', workitem.workitemType)
-            .replace('{status}', workitem.status)
-            .replace('{assignedTo}', workitem.assignedTo)
-            .replace('{category}', workitem.category);
+    const template = config.get(templateKey, defaultTemplate);
+    
+    // 统一获取工作项数据（处理嵌套的 data 属性）
+    let item = workitem.data?.data || workitem.data || workitem;
+    
+    // 智能检测：只在模板需要 description 且当前没有时才获取
+    if (template.includes('{description}') && !item.description && item.workitemId) {
+        try {
+            // 静默获取完整详情，不显示进度提示（避免干扰用户）
+            const fullItem = await workItemManager.getWorkItem(item.workitemId);
+            // 合并数据，保留原有字段
+            item = { ...item, ...fullItem };
+        } catch (error) {
+            console.warn('获取工作项详情失败，将使用基本信息:', error.message);
+        }
+    }
+    
+    // 处理 description 字段：将 JSON 格式转为纯文本
+    let descriptionText = '';
+    if (item.description) {
+        descriptionText = convertDescriptionToText(item.description);
+    }
+    
+    // 使用正则表达式全局替换，支持多次出现
+    return template
+        .replace(/\{id\}/g, item.identifier || '')
+        .replace(/\{title\}/g, item.subject || '')
+        .replace(/\{description\}/g, descriptionText)
+        .replace(/\{workitemType\}/g, item.workitemType || '')
+        .replace(/\{type\}/g, item.workitemType || '')
+        .replace(/\{status\}/g, item.status || '')
+        .replace(/\{assignedTo\}/g, item.assignedTo?.name || '')
+        .replace(/\{category\}/g, item.category || '');
+}
+
+/**
+ * 将工作项的 description 转为纯文本
+ * @param {string|Object} description - 原始 description 数据
+ * @returns {string} 纯文本格式
+ */
+function convertDescriptionToText(description) {
+    // 如果已经是字符串，尝试解析 JSON
+    let descObj = description;
+    if (typeof description === 'string') {
+        try {
+            descObj = JSON.parse(description);
+        } catch (e) {
+            // 不是 JSON，直接返回原文本
+            return description;
+        }
+    }
+    
+    // 如果不是对象，直接转字符串
+    if (typeof descObj !== 'object' || descObj === null) {
+        return String(description);
+    }
+    
+    // 优先使用 htmlValue，去除 HTML 标签
+    if (descObj.htmlValue) {
+        return htmlToText(descObj.htmlValue);
+    }
+    
+    // 如果没有 htmlValue，尝试使用 jsonMLValue
+    if (descObj.jsonMLValue) {
+        return jsonMLToText(descObj.jsonMLValue);
+    }
+    
+    // 都没有，返回空字符串
+    return '';
+}
+
+/**
+ * 将 HTML 转为纯文本
+ * @param {string} html - HTML 字符串
+ * @returns {string} 纯文本
+ */
+function htmlToText(html) {
+    if (!html) return '';
+    
+    return html
+        // 列表项前添加缩进和项目符号
+        .replace(/<li[^>]*>/gi, '\n  • ')
+        .replace(/<\/li>/gi, '')
+        
+        // 段落和换行
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/h[1-6]>/gi, '\n')
+        
+        // 删除所有 HTML 标签
+        .replace(/<[^>]+>/g, '')
+        
+        // 解码 HTML 实体
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        
+        // 清理多余的空行（保留最多一个连续换行）
+        .replace(/\n{2,}/g, '\n')
+        
+        // 去除首尾空白
+        .trim();
+}
+
+/**
+ * 将 JsonML 格式转为纯文本
+ * @param {Array} jsonML - JsonML 数据结构
+ * @returns {string} 纯文本
+ */
+function jsonMLToText(jsonML) {
+    if (!Array.isArray(jsonML)) return '';
+    
+    let result = [];
+    
+    function traverse(node, level = 0) {
+        if (!Array.isArray(node)) {
+            if (typeof node === 'string') {
+                result.push(node);
+            }
+            return;
+        }
+        
+        const [tag, attrs, ...children] = node;
+        
+        // 根据标签类型处理
+        if (tag === 'p') {
+            // 处理列表项
+            if (attrs && attrs.list) {
+                const indent = '  '.repeat(attrs.list.level || 0);
+                const bullet = attrs.list.listStyle?.text || '•';
+                result.push(`\n${indent}${bullet} `);
+            } else {
+                result.push('\n');
+            }
+        }
+        
+        // 递归处理子节点
+        children.forEach(child => traverse(child, level + 1));
+    }
+    
+    traverse(jsonML);
+    
+    return result.join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
 }
 
 function updateStatusBar() {

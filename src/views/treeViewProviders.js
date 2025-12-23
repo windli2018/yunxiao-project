@@ -470,6 +470,9 @@ class RecentTreeProvider {
             const recentItem = element.data;
             const searchData = recentItem.data;
             
+            // 设置 contextValue 以支持右键菜单
+            treeItem.contextValue = TreeItemType.RecentSearchKeyword;
+            
             if (searchData) {
                 treeItem.description = `${searchData.resultCount} 项 | ${searchData.projectName}`;
                 treeItem.tooltip = `搜索关键词：${searchData.keyword}

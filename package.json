@@ -182,6 +182,11 @@
         "command": "yunxiao.clearWorkItemFilter",
         "title": "%yunxiao.clearWorkItemFilter.title%",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "yunxiao.sendToTongyi",
+        "title": "%yunxiao.sendToTongyi.title%",
+        "icon": "$(comment-discussion)"
       }
     ],
     "menus": {
@@ -259,9 +264,19 @@
           "group": "2_actions@3"
         },
         {
+          "command": "yunxiao.sendToTongyi",
+          "when": "viewItem == workitem",
+          "group": "3_tongyi@1"
+        },
+        {
           "command": "yunxiao.removeFromRecent",
           "when": "viewItem == workitem || viewItem == project",
-          "group": "3_recent@1"
+          "group": "4_recent@1"
+        },
+        {
+          "command": "yunxiao.removeFromRecent",
+          "when": "viewItem == recent-search-keyword",
+          "group": "4_recent@1"
         }
       ],
       "scm/title": [
@@ -398,6 +413,12 @@
           "type": "boolean",
           "default": false,
           "description": "%yunxiao.enableDebugLog.description%",
+          "scope": "window"
+        },
+        "yunxiao.tongyiTemplate": {
+          "type": "string",
+          "default": "{type} #{id} {title}\n{description}",
+          "description": "%yunxiao.tongyiTemplate.description%",
           "scope": "window"
         }
       }
