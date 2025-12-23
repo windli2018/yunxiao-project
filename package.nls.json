@@ -35,6 +35,7 @@
   "yunxiao.sendToCopilot.title": "Send to GitHub Copilot",
   "yunxiao.sendToTrae.title": "Send to TRAE AI",
   "yunxiao.sendToAI.title": "Send to AI Assistant",
+  "yunxiao.createBranchAndPasteToCommit.title": "Create Branch and Paste to Commit",
   
   "yunxiao.configuration.title": "Yunxiao Work Item Helper Configuration",
   "yunxiao.domain.description": "Yunxiao API service domain",
