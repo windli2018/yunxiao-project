@@ -823,7 +823,7 @@ function registerCommands(context) {
             try {
                 // 读取配置
                 const config = vscode.workspace.getConfiguration('yunxiao');
-                let defaultAI = config.get('defaultAI', '');
+                let defaultAI = config.get('customAI.defaultAI', '');
                 
                 // 如果是空字符串，说明是首次使用，显示引导
                 if (!defaultAI || defaultAI.trim() === '') {
@@ -856,15 +856,15 @@ function registerCommands(context) {
                     // 根据用户选择设置默认 AI
                     if (choice === 'GitHub Copilot') {
                         defaultAI = 'copilot';
-                        await config.update('defaultAI', 'copilot', vscode.ConfigurationTarget.Global);
+                        await config.update('customAI.defaultAI', 'copilot', vscode.ConfigurationTarget.Global);
                         vscode.window.showInformationMessage('✅ 已设置默认 AI 为 GitHub Copilot');
                     } else if (choice === '通义灵码') {
                         defaultAI = 'tongyi';
-                        await config.update('defaultAI', 'tongyi', vscode.ConfigurationTarget.Global);
+                        await config.update('customAI.defaultAI', 'tongyi', vscode.ConfigurationTarget.Global);
                         vscode.window.showInformationMessage('✅ 已设置默认 AI 为通义灵码');
                     } else if (choice === '自定义 AI') {
                         defaultAI = 'custom';
-                        await config.update('defaultAI', 'custom', vscode.ConfigurationTarget.Global);
+                        await config.update('customAI.defaultAI', 'custom', vscode.ConfigurationTarget.Global);
                         
                         // 提示用户配置自定义 AI 参数
                         const openSettings = await vscode.window.showInformationMessage(
