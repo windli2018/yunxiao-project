@@ -36,6 +36,7 @@
   "yunxiao.sendToTrae.title": "Send to TRAE AI",
   "yunxiao.sendToAI.title": "Send to AI Assistant",
   "yunxiao.createBranchAndPasteToCommit.title": "Create Branch and Paste to Commit",
+  "yunxiao.viewWorkItemProperties.title": "View Properties",
   
   "yunxiao.configuration.title": "Yunxiao Work Item Helper Configuration",
   "yunxiao.domain.description": "Yunxiao API service domain",
@@ -64,5 +65,6 @@
   "yunxiao.customAI.openCommand.description": "VSCode command to open the AI chat panel (e.g., 'workbench.action.chat.open')",
   "yunxiao.customAI.attachCommand.description": "VSCode command to attach selection to chat (optional, leave empty if not supported, e.g., 'github.copilot.chat.attachSelection')",
   "yunxiao.customAI.installUrl.description": "URL to install the AI extension (e.g., 'vscode:extension/GitHub.copilot-chat')",
-  "yunxiao.customAI.template.description": "Message template for sending to custom AI. Available variables: {type}, {id}, {title}, {description}, {status}, {assignee}, {priority}"
+  "yunxiao.customAI.template.description": "Message template for sending to custom AI. Available variables: {type}, {id}, {title}, {description}, {status}, {assignee}, {priority}",
+  "yunxiao.branchNameTemplate.description": "Branch naming template when creating new branch, supports variables: {category} (work item type), {id} (work item identifier), {title} (work item title), {date} (current date)"
 }
