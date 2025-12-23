@@ -77,18 +77,32 @@ const AI_CONFIGS = {
 };
 
 /**
- * 检查是否运行在 Qoder 或 Trae IDE 中
- * 通过 VSCode 运行时上下文的 appName 来判断
+ * 检测 IDE 环境（Qoder 或 Trae IDE）
+ * 通过 VSCode 运行时上下文的 appName 和特有命令来判断
+ * @returns {Promise<{isQoder: boolean, isTraeIDE: boolean, appName: string}>}
  */
+async function detectIDEEnvironment() {
+    const appName = vscode.env.appName;
+    
+    // 判断是否为 Qoder 应用
+    // 方法1: 检查 appName 是否为 'Qoder'
+    let isQoder = appName === 'Qoder';
+    
+    // 方法2: 如果 appName 不是 'Qoder'，尝试通过检查 Qoder 特有命令来判断
+    if (!isQoder) {
+        const commands = await vscode.commands.getCommands();
+        isQoder = commands.includes('aicoding.ide.inline.chat.addToChat');
+    }
+    
+    // 判断是否为 Trae IDE
+    const isTraeIDE = appName === 'Trae';
+    
+    return { isQoder, isTraeIDE, appName };
+}
+
 async function checkIDEEnvironment() {
     try {
-        // 从 VSCode 运行时上下文获取应用名称
-        const appName = vscode.env.appName;
-        
-        // 判断是否为 Qoder 应用
-        const isQoder = appName === 'Qoder';
-        // 判断是否为 Trae IDE
-        const isTraeIDE = appName === 'Trae';
+        const { isQoder, isTraeIDE, appName } = await detectIDEEnvironment();
         
         await vscode.commands.executeCommand('setContext', 'yunxiao.qoderInstalled', isQoder);
         await vscode.commands.executeCommand('setContext', 'yunxiao.traeideInstalled', isTraeIDE);
@@ -937,15 +951,14 @@ function registerCommands(context) {
                                 
                 // 如果是空字符串，说明是首次使用或未配置
                 if (!defaultAI || defaultAI.trim() === '') {
-                    // 在 Qoder 环境下默认使用 Qoder，无需显示引导
-                    const appName = vscode.env.appName;
-                    if (appName === 'Qoder') {
+                    // 检测 IDE 环境，在 Qoder/Trae IDE 环境下默认使用对应 AI，无需显示引导
+                    const { isQoder, isTraeIDE } = await detectIDEEnvironment();
+                    if (isQoder) {
                         console.log('在 Qoder 环境下，默认使用 Qoder AI');
                         await sendToAIChat(workitem, AI_CONFIGS.qoder);
                         return;
                     }
-                    // 在 Trae IDE 环境下默认使用 Trae IDE，无需显示引导
-                    if (appName === 'Trae') {
+                    if (isTraeIDE) {
                         console.log('在 Trae IDE 环境下，默认使用 Trae IDE AI');
                         await sendToAIChat(workitem, AI_CONFIGS.traeide);
                         return;
