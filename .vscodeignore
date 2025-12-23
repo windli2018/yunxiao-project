@@ -1,0 +1,79 @@
+# 编译和构建产物
+out/
+dist/**/*.map
+src/**
+
+# 开发依赖和工具配置
+node_modules/
+.vscode/
+.vscode-test/
+tsconfig.json
+webpack.config.js
+.qoder/
+.yunxiao/
+
+# 测试文件
+**/*.test.js
+**/*.test.ts
+test/
+
+# 源代码映射
+**/*.map
+
+# Git 相关
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD 配置
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# 项目相关文档和临时文件
+.qoder/
+doc/screenshots/
+.editorconfig
+.eslintrc*
+.prettierrc*
+
+# VSCode 扩展打包文件
+*.vsix
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
+
+# 依赖包备份
+package-lock.json
+
+# 参考的其他扩展
+alibaba-cloud.tongyi-lingma-*/
+github.copilot-chat-*/
+marscode.marscode-extension-*/
+psc0606.repository-navigator-*/
+
+# 工作区临时文件
+.yunxiao/
+
+# 开发环境配置
+.env
+.env.*
+
+# 编辑器备份文件
+*~
+*.swp
+*.swo
+*.bak

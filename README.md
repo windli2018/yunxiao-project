@@ -20,10 +20,11 @@
 - 智能排序，提升工作效率
 
 ### 🤖 AI 助手集成
-- 支持发送工作项到多种 AI 助手:GitHub Copilot、通义灵码、自定义 AI
+- 支持发送工作项到多种 AI 助手:Qoder、GitHub Copilot、通义灵码、TRAE AI、自定义 AI
 - 一键发送,自动附加文件或复制到剪贴板
 - 自定义消息模板,支持多种变量
 - 首次使用智能引导,快速配置
+- 🌟 **Qoder 特别支持**：在 Qoder 开发工具中，未配置默认 AI 时自动使用 Qoder AI
 
 ### 🌐 浏览器集成
 - 快速在浏览器中打开工作项详情
@@ -110,6 +111,7 @@
 | `yunxiao.customAI.defaultAI` | 默认 AI 助手 | "" (首次使用显示引导) |
 | `yunxiao.tongyiTemplate` | 发送到通义灵码的消息模板 | "#{id} {title}\n{description}" |
 | `yunxiao.copilotTemplate` | 发送到 Copilot 的消息模板 | "#{id} {title}\n{description}" |
+| `yunxiao.traeTemplate` | 发送到 TRAE AI 的消息模板 | "#{id} {title}\n{description}" |
 | `yunxiao.maxRecentProjects` | 最近使用项目数量上限 | 20 |
 | `yunxiao.maxRecentWorkItems` | 最近使用工作项数量上限 | 50 |
 
@@ -117,30 +119,64 @@
 
 本扩展支持将工作项信息发送到多种 AI 助手,方便您向 AI 咨询关于工作项的问题。
 
+### 🌟 Qoder 特别支持
+
+在 **Qoder 开发工具**中使用本扩展时：
+
+- ✅ **自动识别环境**：无需配置，自动检测当前运行在 Qoder 中
+- ✅ **默认 AI 为 Qoder**：未配置 `defaultAI` 时，自动使用 Qoder AI
+- ✅ **无缝集成**：右键工作项 → “发送到 AI 助手”，直接发送到 Qoder
+- ✅ **专属菜单**：只在 Qoder 中显示“发送到 Qoder”菜单
+
+> 💡 **提示**：在其他 IDE（如 VSCode）中，首次使用会显示引导，选择您喜欢的 AI 助手。
+
 ### 快速开始
 
 #### 1️⃣ 首次使用
 
-1. 在工作项上右键,选择 **"发送到 AI 助手"**
-2. 首次使用会显示引导对话框,选择您喜欢的 AI:
-   - **GitHub Copilot** - 自动附加文件,直接提问(推荐)
+**在 Qoder 中**：
+1. 在工作项上右键，选择 **“发送到 AI 助手”** 或 **“发送到 Qoder”**
+2. 自动发送到 Qoder AI，无需额外配置 ✨
+
+**在其他 IDE 中**：
+1. 在工作项上右键，选择 **"发送到 AI 助手"**
+2. 首次使用会显示引导对话框，选择您喜欢的 AI：
+   - **Qoder** - 内置 AI，自动附加文件（推荐）
+   - **GitHub Copilot** - 自动附加文件，直接提问
    - **通义灵码** - 复制粘贴模式
+   - **TRAE AI** - 自动附加文件，直接提问
    - **自定义 AI** - 配置其他 AI 工具
-3. 选择后自动保存配置,下次直接使用
+3. 选择后自动保存配置，下次直接使用
 
 #### 2️⃣ 使用功能
 
-在工作项上右键,选择:
-- **发送到 AI 助手** - 使用默认配置的 AI
+在工作项上右键，选择：
+- **发送到 AI 助手** - 使用默认配置的 AI（Qoder 环境下默认为 Qoder）
+- **发送到 Qoder** - 固定使用 Qoder（仅在 Qoder 中显示）
 - **发送到 GitHub Copilot** - 固定使用 Copilot
 - **发送到通义灵码** - 固定使用通义
+- **发送到 TRAE AI** - 固定使用 TRAE
 
 #### 3️⃣ 完成!
 
-- **Copilot**: 文件会自动附加,直接提问即可 ✨
+- **Qoder**: 文件会自动附加，直接提问即可 ✨
+- **Copilot**: 文件会自动附加，直接提问即可 ✨
+- **TRAE**: 文件会自动附加，直接提问即可 ✨
 - **通义**: 手动粘贴(`Ctrl+V`)到聊天框
 
 ### 工作流程
+
+#### 使用 Qoder
+
+1. 右键工作项 → **“发送到 Qoder”** 或 **“发送到 AI 助手”**
+2. 工作项信息会：
+   - 自动创建文件到 `.yunxiao/{Bug|Req|Task}/{id}_{title}.txt`
+   - 附加到 Qoder Chat
+   - 打开 Qoder 聊天面板
+3. 直接在 Qoder 中提问：
+   - “这个问题可能的原因是什么？”
+   - “给出解决方案”
+   - “写一个修复这个 Bug 的测试用例”
 
 #### 使用 GitHub Copilot
 
@@ -153,6 +189,18 @@
    - "这个问题可能的原因是什么?"
    - "给出解决方案"
    - "写一个修复这个 Bug 的测试用例"
+
+#### 使用 TRAE AI
+
+1. 右键工作项 → **"发送到 TRAE AI"**
+2. 工作项信息会:
+   - 自动创建文件到 `.yunxiao/{Bug|Req|Task}/{id}_{title}.txt`
+   - 附加到 TRAE Chat
+   - 打开 TRAE AI 聊天面板
+3. 直接在 TRAE 中提问:
+   - "分析这个需求的技术实现方案"
+   - "这个 Bug 可能的原因是什么?"
+   - "生成单元测试代码"
 
 #### 使用通义灵码
 
@@ -171,7 +219,7 @@
 
 ```json
 {
-  "yunxiao.customAI.defaultAI": "copilot"  // 可选: copilot, tongyi, custom
+  "yunxiao.customAI.defaultAI": "qoder"  // 可选: qoder, copilot, tongyi, trae, custom
 }
 ```
 
@@ -188,6 +236,13 @@
 ```json
 {
   "yunxiao.tongyiTemplate": "{type} #{id} {title}\n\n详细描述:\n{description}"
+}
+```
+
+**TRAE 模板**:
+```json
+{
+  "yunxiao.traeTemplate": "{type} #{id} {title}\n\n详细描述:\n{description}"
 }
 ```
 
@@ -258,10 +313,12 @@
 
 ### 前置条件
 
+- **Qoder**: 内置支持，无需额外安装
 - **GitHub Copilot**: [GitHub Copilot](vscode:extension/GitHub.copilot-chat)
 - **通义灵码**: [Tongyi Lingma](vscode:extension/Alibaba-Cloud.tongyi-lingma)
+- **TRAE AI**: [TRAE AI](vscode:extension/MarsCode.marscode-extension)
 
-如果未安装,扩展会提示您前往安装。
+如果未安装，扩展会提示您前往安装。
 
 ## 粘贴格式模板
 
@@ -349,10 +406,11 @@ A: 支持云效中的所有工作项类型,包括:
 ### 1.2.0 (2025-12-23)
 
 - ✨ 新增 AI 助手集成功能
-- 🤖 支持 GitHub Copilot、通义灵码、自定义 AI
+- 🤖 支持 GitHub Copilot、通义灵码、TRAE AI、自定义 AI
 - 🎉 首次使用智能引导
 - 📁 自动文件管理(支持附加的 AI)
 - ⚙️ 自定义消息模板
+- 🌟 Qoder 特别支持：自动识别环境，默认使用 Qoder AI
 
 ### 1.0.0 (2025-12-19)
 
@@ -369,6 +427,35 @@ A: 支持云效中的所有工作项类型,包括:
 
 - 提交 Issue：[GitHub Issues](https://github.com/windli2018/yunxiao-project/issues)
 - yunxiao@alot.pw
+
+## TODO / 未来计划
+
+### 🤖 AI 助手扩展
+- [x] 支持 Qoder（内置）
+- [x] 支持 GitHub Copilot
+- [x] 支持通义灵码
+- [x] 支持 TRAE AI
+- [ ] 支持更多 AI 插件或 IDE
+  - Claude AI
+  - Cursor IDE
+  - 其他主流 AI 编程助手
+- [ ] 支持 Qoder Quest 模式
+  - 需要 Qoder 支持从插件发起 Quest 任务
+  - 直接将工作项转换为 Quest，跟踪开发进度
+  - 自动关联代码变更到工作项
+
+### 📋 功能增强
+- [ ] 工作项详情查看
+- [ ] 离线模式支持
+- [ ] 工作项评论查看与添加
+- [ ] 批量操作支持
+
+### ⚙️ 性能优化
+- [ ] 增量数据同步
+- [ ] 更智能的缓存策略
+- [ ] 后台自动刷新
+
+> 💡 如果您有其他功能建议，欢迎在 GitHub Issues 中提出！
 
 ## 许可证
 

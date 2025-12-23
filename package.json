@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速关联工作项到提交消息",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -187,6 +187,16 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "yunxiao.sendToQoder",
+        "title": "%yunxiao.sendToQoder.title%",
+        "icon": "$(robot)"
+      },
+      {
+        "command": "yunxiao.sendToTraeIDE",
+        "title": "%yunxiao.sendToTraeIDE.title%",
+        "icon": "$(robot)"
+      },
+      {
         "command": "yunxiao.sendToTongyi",
         "title": "%yunxiao.sendToTongyi.title%",
         "icon": "$(comment-discussion)"
@@ -195,6 +205,11 @@
         "command": "yunxiao.sendToCopilot",
         "title": "%yunxiao.sendToCopilot.title%",
         "icon": "$(copilot)"
+      },
+      {
+        "command": "yunxiao.sendToTrae",
+        "title": "%yunxiao.sendToTrae.title%",
+        "icon": "$(comment-discussion)"
       },
       {
         "command": "yunxiao.sendToAI",
@@ -277,19 +292,34 @@
           "group": "2_actions@3"
         },
         {
-          "command": "yunxiao.sendToTongyi",
-          "when": "viewItem == workitem",
+          "command": "yunxiao.sendToQoder",
+          "when": "viewItem == workitem && yunxiao.qoderInstalled",
           "group": "3_tongyi@1"
         },
         {
-          "command": "yunxiao.sendToCopilot",
+          "command": "yunxiao.sendToTraeIDE",
+          "when": "viewItem == workitem && yunxiao.traeideInstalled",
+          "group": "3_tongyi@1.5"
+        },
+        {
+          "command": "yunxiao.sendToTongyi",
           "when": "viewItem == workitem",
           "group": "3_tongyi@2"
         },
         {
-          "command": "yunxiao.sendToAI",
+          "command": "yunxiao.sendToCopilot",
           "when": "viewItem == workitem",
           "group": "3_tongyi@3"
+        },
+        {
+          "command": "yunxiao.sendToTrae",
+          "when": "viewItem == workitem",
+          "group": "3_tongyi@4"
+        },
+        {
+          "command": "yunxiao.sendToAI",
+          "when": "viewItem == workitem",
+          "group": "3_tongyi@5"
         },
         {
           "command": "yunxiao.removeFromRecent",
@@ -438,6 +468,18 @@
           "description": "%yunxiao.enableDebugLog.description%",
           "scope": "window"
         },
+        "yunxiao.qoderTemplate": {
+          "type": "string",
+          "default": "{type} #{id} {title}\n{description}",
+          "description": "%yunxiao.qoderTemplate.description%",
+          "scope": "window"
+        },
+        "yunxiao.traeideTemplate": {
+          "type": "string",
+          "default": "{type} #{id} {title}\n{description}",
+          "description": "%yunxiao.traeideTemplate.description%",
+          "scope": "window"
+        },
         "yunxiao.tongyiTemplate": {
           "type": "string",
           "default": "{type} #{id} {title}\n{description}",
@@ -450,9 +492,15 @@
           "description": "%yunxiao.copilotTemplate.description%",
           "scope": "window"
         },
+        "yunxiao.traeTemplate": {
+          "type": "string",
+          "default": "{type} #{id} {title}\n{description}",
+          "description": "%yunxiao.traeTemplate.description%",
+          "scope": "window"
+        },
         "yunxiao.customAI.defaultAI": {
           "type": "string",
-          "enum": ["", "copilot", "tongyi", "custom"],
+          "enum": ["", "qoder", "copilot", "tongyi", "trae", "custom"],
           "default": "",
           "description": "%yunxiao.customAI.defaultAI.description%",
           "scope": "window"

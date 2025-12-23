@@ -1,6 +1,8 @@
-node_modules
-dist
-out
+node_modules/
+dist/
+out/
 *.vsix
-.vscode-test
-.vscode
+.vscode-test/
+.vscode/
+.yunxiao/
+.quest/
