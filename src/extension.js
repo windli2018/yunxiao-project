@@ -444,7 +444,7 @@ function registerCommands(context) {
             const menuItems = [];
             
             // 1. 添加最近使用的工作项（最多5个）
-            const recentItems = recentManager.getRecentItems(RecentItemType.WorkItem, 5);
+            const recentItems = recentManager.getRecentWorkItems(10);
             if (recentItems.length > 0) {
                 recentItems.forEach(item => {
                     const data = item.data;
