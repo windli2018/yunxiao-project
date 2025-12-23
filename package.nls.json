@@ -30,6 +30,8 @@
   "yunxiao.workItemQuickFilter.title": "Filter Work Items",
   "yunxiao.clearWorkItemFilter.title": "Clear Filter",
   "yunxiao.sendToTongyi.title": "Send to Tongyi Lingma",
+  "yunxiao.sendToCopilot.title": "Send to GitHub Copilot",
+  "yunxiao.sendToAI.title": "Send to AI Assistant",
   
   "yunxiao.configuration.title": "Yunxiao Work Item Helper Configuration",
   "yunxiao.domain.description": "Yunxiao API service domain",
@@ -47,5 +49,13 @@
   "yunxiao.maxRecentProjects.description": "Maximum recent projects count",
   "yunxiao.maxRecentWorkItems.description": "Maximum recent work items count",
   "yunxiao.enableDebugLog.description": "Enable debug logging",
-  "yunxiao.tongyiTemplate.description": "Message template for sending to Tongyi Lingma, supports variables: {id}, {title}, {description}, {type}, {status}"
+  "yunxiao.tongyiTemplate.description": "Message template for sending to Tongyi Lingma, supports variables: {id}, {title}, {description}, {type}, {status}",
+  "yunxiao.copilotTemplate.description": "Message template for sending to GitHub Copilot, supports variables: {id}, {title}, {description}, {type}, {status}",
+  "yunxiao.customAI.defaultAI.description": "Default AI assistant to use when sending work items. Options: (empty - show setup guide on first use), copilot (GitHub Copilot), tongyi (Tongyi Lingma), custom (Custom AI configured below)",
+  "yunxiao.customAI.extensionId.description": "Extension ID of the custom AI assistant (e.g., 'GitHub.copilot-chat')",
+  "yunxiao.customAI.extensionName.description": "Display name of the custom AI assistant (e.g., 'GitHub Copilot')",
+  "yunxiao.customAI.openCommand.description": "VSCode command to open the AI chat panel (e.g., 'workbench.action.chat.open')",
+  "yunxiao.customAI.attachCommand.description": "VSCode command to attach selection to chat (optional, leave empty if not supported, e.g., 'github.copilot.chat.attachSelection')",
+  "yunxiao.customAI.installUrl.description": "URL to install the AI extension (e.g., 'vscode:extension/GitHub.copilot-chat')",
+  "yunxiao.customAI.template.description": "Message template for sending to custom AI. Available variables: {type}, {id}, {title}, {description}, {status}, {assignee}, {priority}"
 }

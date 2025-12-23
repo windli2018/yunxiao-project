@@ -1,4 +1,6 @@
 const vscode = require('vscode');
+const path = require('path');
+const fs = require('fs').promises;
 const { YunxiaoApiClient } = require('./services/yunxiaoApiClient');
 const { AuthManager } = require('./managers/authManager');
 const { CacheManager } = require('./managers/cacheManager');
@@ -21,6 +23,253 @@ let projectsTreeProvider;
 let workItemsTreeProvider;
 let recentTreeProvider;
 let searchTreeProvider;
+
+/**
+ * 清理文件名中的特殊字符，确保可以安全写入文件系统
+ * @param {string} filename - 原始文件名
+ * @returns {string} 清理后的文件名
+ */
+function sanitizeFilename(filename) {
+    // 移除或替换 Windows 和 Unix 文件系统不允许的字符
+    return filename
+        .replace(/[<>:"/\\|?*]/g, '_')  // 替换特殊字符为下划线
+        .replace(/[\x00-\x1f]/g, '')     // 移除控制字符
+        .replace(/\.+$/g, '')            // 移除末尾的点
+        .trim();
+}
+
+/**
+ * 生成唯一的文件路径，如果文件已存在则添加 (1), (2) 等后缀
+ * @param {string} dirPath - 目录路径
+ * @param {string} baseFilename - 基础文件名（不含扩展名）
+ * @param {string} ext - 文件扩展名（含点号，如 '.txt'）
+ * @returns {Promise<string>} 唯一的文件路径
+ */
+async function getUniqueFilePath(dirPath, baseFilename, ext) {
+    let filePath = path.join(dirPath, baseFilename + ext);
+    let counter = 1;
+    
+    // 检查文件是否存在，如果存在则添加编号
+    while (true) {
+        try {
+            await fs.access(filePath);
+            // 文件存在，生成新的文件名
+            filePath = path.join(dirPath, `${baseFilename}(${counter})${ext}`);
+            counter++;
+        } catch {
+            // 文件不存在，可以使用这个路径
+            break;
+        }
+    }
+    
+    return filePath;
+}
+
+/**
+ * 在工作区创建或获取 .yunxiao 目录下的文件
+ * 如果已存在内容相同的文件，则直接返回该文件的 URI
+ * @param {string} category - 工作项类型（如 'Req', 'Bug'）
+ * @param {string} id - 工作项 ID
+ * @param {string} subject - 工作项标题
+ * @param {string} content - 文件内容
+ * @returns {Promise<{uri: vscode.Uri, existed: boolean}>} 文件 URI 和是否已存在
+ */
+async function createWorkItemFile(category, id, subject, content) {
+    // 获取工作区根目录
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error('未打开工作区，无法创建文件');
+    }
+    
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    
+    // 创建 .yunxiao 目录
+    const yunxiaoDir = path.join(rootPath, '.yunxiao');
+    await fs.mkdir(yunxiaoDir, { recursive: true });
+    
+    // 创建类型子目录
+    const categoryDir = path.join(yunxiaoDir, category);
+    await fs.mkdir(categoryDir, { recursive: true });
+    
+    // 生成文件名：id + subject前60字符
+    const subjectPart = subject.substring(0, 60);
+    const baseFilename = sanitizeFilename(`${id}_${subjectPart}`);
+    
+    // 首先检查该目录下是否已存在内容相同的文件
+    try {
+        const files = await fs.readdir(categoryDir);
+        
+        // 遍历所有 .txt 文件
+        for (const file of files) {
+            if (file.endsWith('.txt') && file.includes(baseFilename)) {
+                const filePath = path.join(categoryDir, file);
+                try {
+                    const existingContent = await fs.readFile(filePath, 'utf8');
+                    
+                    // 如果内容完全相同，直接返回该文件
+                    if (existingContent === content) {
+                        console.log(`找到内容相同的文件: ${file}`);
+                        return {
+                            uri: vscode.Uri.file(filePath),
+                            existed: true
+                        };
+                    }
+                } catch (readError) {
+                    // 读取文件失败，跳过
+                    console.warn(`读取文件失败: ${file}`, readError);
+                }
+            }
+        }
+    } catch (readdirError) {
+        // 目录读取失败，可能目录不存在，继续创建文件
+        console.warn('读取目录失败，继续创建新文件', readdirError);
+    }
+    
+    // 没有找到内容相同的文件，创建新文件
+    
+    // 获取唯一文件路径
+    const filePath = await getUniqueFilePath(categoryDir, baseFilename, '.txt');
+    
+    // 写入文件
+    await fs.writeFile(filePath, content, 'utf8');
+    
+    return {
+        uri: vscode.Uri.file(filePath),
+        existed: false
+    };
+}
+
+/**
+ * 发送工作项到 AI 聊天工具的通用函数
+ * @param {Object} workitem - 工作项对象
+ * @param {Object} config - 配置对象
+ * @param {string} config.extensionId - 扩展 ID（如 'GitHub.copilot-chat'）
+ * @param {string} config.extensionName - 扩展显示名称（如 'GitHub Copilot'）
+ * @param {string} config.templateKey - 模板配置键（如 'copilotTemplate'）
+ * @param {string} config.defaultTemplate - 默认模板
+ * @param {string} config.openCommand - 打开聊天面板的命令
+ * @param {string} config.attachCommand - 附加选择的命令（可选）
+ * @param {string} config.installUrl - 安装扩展的 URL
+ * @returns {Promise<void>}
+ */
+async function sendToAIChat(workitem, config) {
+    // 1. 获取并验证工作项数据
+    const item = workitem.data?.data || workitem.data || workitem;
+    
+    if (!item || !item.identifier) {
+        vscode.window.showErrorMessage('无法获取工作项信息');
+        return;
+    }
+    
+    // 2. 格式化工作项内容
+    const message = await formatWorkItem(
+        workitem,
+        config.templateKey,
+        config.defaultTemplate
+    );
+    
+    // 始终复制到剪贴板
+    await vscode.env.clipboard.writeText(message);
+            
+    // 3. 添加到最近使用
+    recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
+    recentTreeProvider.refresh();
+    
+    // 4. 检查扩展是否安装
+    const extension = vscode.extensions.getExtension(config.extensionId);
+    
+    if (!extension) {
+        const choice = await vscode.window.showWarningMessage(
+            `未检测到 ${config.extensionName} 扩展。请先安装 ${config.extensionName}。`,
+            '前往安装',
+            '复制消息到剪贴板'
+        );
+        
+        if (choice === '前往安装') {
+            vscode.env.openExternal(vscode.Uri.parse(config.installUrl));
+        } else if (choice === '复制消息到剪贴板') {
+            await vscode.env.clipboard.writeText(message);
+            vscode.window.showInformationMessage('已复制到剪贴板');
+        }
+        return;
+    }
+    
+    // 5. 激活扩展
+    if (!extension.isActive) {
+        await extension.activate();
+    }
+    
+    // 6. 如果支持附加选择功能，创建文件并附加
+    if (config.attachCommand) {
+        try {
+            // 创建或获取持久化文件
+            const fileResult = await createWorkItemFile(
+                item.workitemType || 'WorkItem',
+                item.identifier,
+                item.subject,
+                message
+            );
+            
+            const fileUri = fileResult.uri;
+            const fileExisted = fileResult.existed;
+            
+            // 打开文件
+            const doc = await vscode.workspace.openTextDocument(fileUri);
+            const editor = await vscode.window.showTextDocument(doc, {
+                preview: false,
+                preserveFocus: false,
+                viewColumn: vscode.ViewColumn.Active
+            });
+            
+            // 选中全部内容
+            const fullRange = new vscode.Range(
+                doc.positionAt(0),
+                doc.positionAt(doc.getText().length)
+            );
+            editor.selection = new vscode.Selection(fullRange.start, fullRange.end);
+            
+            // 等待编辑器就绪
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 调用附加选择命令
+            await vscode.commands.executeCommand(config.attachCommand);
+            
+            // 等待附加完成
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // 打开聊天面板
+            await vscode.commands.executeCommand(config.openCommand);
+            
+            // 提示用户（根据文件是否已存在显示不同消息）
+            if (fileExisted) {
+                vscode.window.showInformationMessage(
+                    `✅ 工作项信息已附加到 ${config.extensionName}\n\n📁 找到相同内容的文件，已直接打开\n💡 工作项内容已作为上下文附加，现在可以直接提问！`
+                );
+            } else {
+                vscode.window.showInformationMessage(
+                    `✅ 工作项信息已附加到 ${config.extensionName}\n\n💡 工作项内容已作为上下文附加，现在可以直接提问！`
+                );
+            }
+            
+        } catch (error) {
+            console.error('自动附加失败，回退到手动方案:', error);
+            
+            await vscode.commands.executeCommand(config.openCommand);
+            
+            vscode.window.showInformationMessage(
+                `⚠️ 自动附加失败，已复制到剪贴板\n\n💡 请手动粘贴（Ctrl+V）到聊天框`
+            );
+        }
+    } else {
+        // 7. 不支持附加选择，直接复制到剪贴板
+        await vscode.env.clipboard.writeText(message);
+        await vscode.commands.executeCommand(config.openCommand);
+        
+        vscode.window.showInformationMessage(
+            `✅ 已打开 ${config.extensionName} 并复制工作项信息到剪贴板\n\n💡 ${config.extensionName} 暂未提供直接发送消息的 API，需要手动粘贴（Ctrl+V）\n我们会持续关注更新，如有 API 支持将第一时间优化！`
+        );
+    }
+}
 
 async function activate(context) {
     console.log('云效工作项助手扩展已激活');
@@ -538,65 +787,149 @@ function registerCommands(context) {
 
         vscode.commands.registerCommand('yunxiao.sendToTongyi', async (workitem) => {
             try {
-                // 获取工作项数据（统一处理）
-                const item = workitem.data?.data || workitem.data || workitem;
-                        
-                if (!item || !item.identifier) {
-                    vscode.window.showErrorMessage('无法获取工作项信息');
-                    return;
-                }
-                        
-                // 使用统一的格式化函数，指定通义模板
-                // formatWorkItem 会自动检测模板是否需要 description 并自动获取
-                const message = await formatWorkItem(
-                    workitem, 
-                    'tongyiTemplate', 
-                    '{type} #{id} {title}\n{description}'
-                );
-
-                   // 将消息复制到剪贴板，用户可以直接粘贴
-                await vscode.env.clipboard.writeText(message);
-                        
-                // 添加到最近使用
-                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
-                recentTreeProvider.refresh();
-             
-                        
-                // 尝试打开通义灵码并发送消息
-                const tongyiExtension = vscode.extensions.getExtension('Alibaba-Cloud.tongyi-lingma');
-                        
-                if (!tongyiExtension) {
-                    // 通义灵码未安装，提示用户
-                    const choice = await vscode.window.showWarningMessage(
-                        '未检测到通义灵码扩展。请先安装通义灵码。',
-                        '前往安装',
-                        '复制消息到剪贴板'
-                    );
-                            
-                    if (choice === '前往安装') {
-                        vscode.env.openExternal(vscode.Uri.parse('vscode:extension/Alibaba-Cloud.tongyi-lingma'));
-                    } else if (choice === '复制消息到剪贴板') {
-                        await vscode.env.clipboard.writeText(message);
-                        vscode.window.showInformationMessage('已复制到剪贴板');
-                    }
-                    return;
-                }
-                        
-                // 确保扩展已激活
-                if (!tongyiExtension.isActive) {
-                    await tongyiExtension.activate();
-                }
-                        
-                // 打开通义灵码聊天面板
-                await vscode.commands.executeCommand('tongyi.show.panel.chat');
-                                   
-                // 提示用户 - 说明技术限制
-                vscode.window.showInformationMessage(
-                    `✅ 已打开通义灵码并复制工作项信息到剪贴板\n\n💡 通义灵码暂未提供直接发送消息的 API，需要手动粘贴（Ctrl+V）\n我们会持续关注更新，如有 API 支持将第一时间优化！`
-                );
-                        
+                await sendToAIChat(workitem, {
+                    extensionId: 'Alibaba-Cloud.tongyi-lingma',
+                    extensionName: '通义灵码',
+                    templateKey: 'tongyiTemplate',
+                    defaultTemplate: '{type} #{id} {title}\n{description}',
+                    openCommand: 'tongyi.show.panel.chat',
+                    attachCommand: undefined,  // 通义灵码不支持 attachSelection
+                    installUrl: 'vscode:extension/Alibaba-Cloud.tongyi-lingma'
+                });
             } catch (error) {
                 console.error('发送到通义灵码失败:', error);
+                vscode.window.showErrorMessage(`发送失败: ${error.message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('yunxiao.sendToCopilot', async (workitem) => {
+            try {
+                await sendToAIChat(workitem, {
+                    extensionId: 'GitHub.copilot-chat',
+                    extensionName: 'GitHub Copilot',
+                    templateKey: 'copilotTemplate',
+                    defaultTemplate: '{type} #{id} {title}\n{description}',
+                    openCommand: 'workbench.action.chat.open',
+                    attachCommand: 'github.copilot.chat.attachSelection',
+                    installUrl: 'vscode:extension/GitHub.copilot-chat'
+                });
+            } catch (error) {
+                console.error('发送到 GitHub Copilot 失败:', error);
+                vscode.window.showErrorMessage(`发送失败: ${error.message}`);
+            }
+        }),
+
+        vscode.commands.registerCommand('yunxiao.sendToAI', async (workitem) => {
+            try {
+                // 读取配置
+                const config = vscode.workspace.getConfiguration('yunxiao');
+                let defaultAI = config.get('defaultAI', '');
+                
+                // 如果是空字符串，说明是首次使用，显示引导
+                if (!defaultAI || defaultAI.trim() === '') {
+                    const choice = await vscode.window.showInformationMessage(
+                        '🚀 欢迎使用“发送到 AI 助手”功能！\n\n请先选择您喜欢的 AI 助手：',
+                        {
+                            modal: true,
+                            detail: '您可以选择：\n\n🤖 GitHub Copilot - 自动附加文件，直接提问（推荐）\n💡 通义灵码 - 复制粘贴模式\n⚙️ 自定义 AI - 配置其他 AI 工具\n\n也可以点击“打开设置”进行更多自定义配置。'
+                        },
+                        'GitHub Copilot',
+                        '通义灵码',
+                        '自定义 AI',
+                        '打开设置'
+                    );
+                    
+                    if (!choice) {
+                        // 用户取消，不执行任何操作
+                        return;
+                    }
+                    
+                    if (choice === '打开设置') {
+                        // 打开设置页面，聚焦到 defaultAI 配置项
+                        await vscode.commands.executeCommand('workbench.action.openSettings', 'yunxiao.customAI');
+                        vscode.window.showInformationMessage(
+                            'ℹ️ 请在设置中选择 "Default AI" 并配置相关参数，然后重新使用“发送到 AI 助手”功能。'
+                        );
+                        return;
+                    }
+                    
+                    // 根据用户选择设置默认 AI
+                    if (choice === 'GitHub Copilot') {
+                        defaultAI = 'copilot';
+                        await config.update('defaultAI', 'copilot', vscode.ConfigurationTarget.Global);
+                        vscode.window.showInformationMessage('✅ 已设置默认 AI 为 GitHub Copilot');
+                    } else if (choice === '通义灵码') {
+                        defaultAI = 'tongyi';
+                        await config.update('defaultAI', 'tongyi', vscode.ConfigurationTarget.Global);
+                        vscode.window.showInformationMessage('✅ 已设置默认 AI 为通义灵码');
+                    } else if (choice === '自定义 AI') {
+                        defaultAI = 'custom';
+                        await config.update('defaultAI', 'custom', vscode.ConfigurationTarget.Global);
+                        
+                        // 提示用户配置自定义 AI 参数
+                        const openSettings = await vscode.window.showInformationMessage(
+                            '✅ 已设置默认 AI 为自定义\n\n请配置以下参数：\n- 扩展 ID\n- 扩展名称\n- 打开命令\n- 附加命令（可选）\n- 安装 URL',
+                            '打开设置'
+                        );
+                        
+                        if (openSettings === '打开设置') {
+                            await vscode.commands.executeCommand('workbench.action.openSettings', 'yunxiao.customAI');
+                            return;
+                        }
+                    }
+                }
+                
+                let aiConfig;
+                
+                if (defaultAI === 'tongyi') {
+                    // 使用通义灵码
+                    aiConfig = {
+                        extensionId: 'Alibaba-Cloud.tongyi-lingma',
+                        extensionName: '通义灵码',
+                        templateKey: 'tongyiTemplate',
+                        defaultTemplate: '{type} #{id} {title}\n{description}',
+                        openCommand: 'tongyi.show.panel.chat',
+                        attachCommand: undefined,
+                        installUrl: 'vscode:extension/Alibaba-Cloud.tongyi-lingma'
+                    };
+                } else if (defaultAI === 'copilot') {
+                    // 使用 GitHub Copilot
+                    aiConfig = {
+                        extensionId: 'GitHub.copilot-chat',
+                        extensionName: 'GitHub Copilot',
+                        templateKey: 'copilotTemplate',
+                        defaultTemplate: '{type} #{id} {title}\n{description}',
+                        openCommand: 'workbench.action.chat.open',
+                        attachCommand: 'github.copilot.chat.attachSelection',
+                        installUrl: 'vscode:extension/GitHub.copilot-chat'
+                    };
+                } else if (defaultAI === 'custom') {
+                    // 使用自定义 AI
+                    const extensionId = config.get('customAI.extensionId', 'GitHub.copilot-chat');
+                    const extensionName = config.get('customAI.extensionName', 'GitHub Copilot');
+                    const openCommand = config.get('customAI.openCommand', 'workbench.action.chat.open');
+                    const attachCommand = config.get('customAI.attachCommand', 'github.copilot.chat.attachSelection');
+                    const installUrl = config.get('customAI.installUrl', 'vscode:extension/GitHub.copilot-chat');
+                    const template = config.get('customAI.template', '{type} #{id} {title}\n{description}');
+                    
+                    aiConfig = {
+                        extensionId,
+                        extensionName,
+                        templateKey: 'customAI.template',
+                        defaultTemplate: template,
+                        openCommand,
+                        attachCommand: attachCommand.trim() === '' ? undefined : attachCommand,
+                        installUrl
+                    };
+                } else {
+                    // 如果配置无效，提示用户
+                    vscode.window.showErrorMessage('无效的 AI 配置，请检查设置');
+                    return;
+                }
+                
+                await sendToAIChat(workitem, aiConfig);
+            } catch (error) {
+                console.error('发送到 AI 助手失败:', error);
                 vscode.window.showErrorMessage(`发送失败: ${error.message}`);
             }
         }),

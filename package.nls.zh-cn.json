@@ -30,6 +30,8 @@
   "yunxiao.workItemQuickFilter.title": "过滤工作项",
   "yunxiao.clearWorkItemFilter.title": "清除过滤",
   "yunxiao.sendToTongyi.title": "发送到通义灵码",
+  "yunxiao.sendToCopilot.title": "发送到 GitHub Copilot",
+  "yunxiao.sendToAI.title": "发送到 AI 助手",
   
   "yunxiao.configuration.title": "云效工作项助手配置",
   "yunxiao.domain.description": "云效 API 服务域名",
@@ -47,5 +49,13 @@
   "yunxiao.maxRecentProjects.description": "最近使用项目数量上限",
   "yunxiao.maxRecentWorkItems.description": "最近使用工作项数量上限",
   "yunxiao.enableDebugLog.description": "启用调试日志输出",
-  "yunxiao.tongyiTemplate.description": "发送到通义灵码的消息模板，支持变量：{id}、{title}、{description}、{type}、{status}"
+  "yunxiao.tongyiTemplate.description": "发送到通义灵码的消息模板，支持变量：{id}、{title}、{description}、{type}、{status}",
+  "yunxiao.copilotTemplate.description": "发送到 GitHub Copilot 的消息模板，支持变量：{id}、{title}、{description}、{type}、{status}",
+  "yunxiao.customAI.defaultAI.description": "发送工作项时使用的默认 AI 助手。选项：（空 - 首次使用时显示配置引导）、copilot（GitHub Copilot）、tongyi（通义灵码）、custom（使用下方自定义 AI 配置）",
+  "yunxiao.customAI.extensionId.description": "自定义 AI 助手的扩展 ID（例如：'GitHub.copilot-chat'）",
+  "yunxiao.customAI.extensionName.description": "自定义 AI 助手的显示名称（例如：'GitHub Copilot'）",
+  "yunxiao.customAI.openCommand.description": "打开 AI 聊天面板的 VSCode 命令（例如：'workbench.action.chat.open'）",
+  "yunxiao.customAI.attachCommand.description": "附加选中内容到聊天的 VSCode 命令（可选，如果不支持则留空，例如：'github.copilot.chat.attachSelection'）",
+  "yunxiao.customAI.installUrl.description": "安装 AI 扩展的 URL（例如：'vscode:extension/GitHub.copilot-chat'）",
+  "yunxiao.customAI.template.description": "发送到自定义 AI 的消息模板，支持变量：{type}、{id}、{title}、{description}、{status}、{assignee}、{priority}"
 }

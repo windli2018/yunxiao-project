@@ -19,10 +19,11 @@
 - 记录最近访问的项目和工作项
 - 智能排序，提升工作效率
 
-### 🤖 通义灵码集成
-- 右键工作项，一键发送到通义灵码
-- 自定义消息模板，支持变量：{id}、{title}、{description}、{type}、{status}
-- 自动打开通义灵码对话窗口，工作项信息已复制到剪贴板
+### 🤖 AI 助手集成
+- 支持发送工作项到多种 AI 助手:GitHub Copilot、通义灵码、自定义 AI
+- 一键发送,自动附加文件或复制到剪贴板
+- 自定义消息模板,支持多种变量
+- 首次使用智能引导,快速配置
 
 ### 🌐 浏览器集成
 - 快速在浏览器中打开工作项详情
@@ -106,61 +107,161 @@
 
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
+| `yunxiao.customAI.defaultAI` | 默认 AI 助手 | "" (首次使用显示引导) |
 | `yunxiao.tongyiTemplate` | 发送到通义灵码的消息模板 | "#{id} {title}\n{description}" |
+| `yunxiao.copilotTemplate` | 发送到 Copilot 的消息模板 | "#{id} {title}\n{description}" |
 | `yunxiao.maxRecentProjects` | 最近使用项目数量上限 | 20 |
 | `yunxiao.maxRecentWorkItems` | 最近使用工作项数量上限 | 50 |
 
-## 通义灵码集成
+## AI 助手集成
 
-本扩展支持将工作项信息发送到通义灵码，方便您向 AI 助手咨询关于工作项的问题。
+本扩展支持将工作项信息发送到多种 AI 助手,方便您向 AI 咨询关于工作项的问题。
 
-### 使用方法
+### 快速开始
 
-1. 在工作项列表中右键点击任意工作项
-2. 选择“发送到通义灵码”
-3. 自动打开通义灵码对话窗口，工作项信息已复制到剪贴板
-4. 在通义灵码输入框中按 `Ctrl+V` 粘贴并发送
+#### 1️⃣ 首次使用
 
-> 💡 **技术说明**：由于通义灵码暂未提供公开的 API 支持其他扩展直接发送消息，目前需要手动粘贴。我们会持续关注通义灵码的更新，一旦有 API 支持，将立即优化为自动发送功能！
+1. 在工作项上右键,选择 **"发送到 AI 助手"**
+2. 首次使用会显示引导对话框,选择您喜欢的 AI:
+   - **GitHub Copilot** - 自动附加文件,直接提问(推荐)
+   - **通义灵码** - 复制粘贴模式
+   - **自定义 AI** - 配置其他 AI 工具
+3. 选择后自动保存配置,下次直接使用
 
-### 模板配置
+#### 2️⃣ 使用功能
 
-您可以通过 `yunxiao.tongyiTemplate` 配置项自定义发送的消息格式。
+在工作项上右键,选择:
+- **发送到 AI 助手** - 使用默认配置的 AI
+- **发送到 GitHub Copilot** - 固定使用 Copilot
+- **发送到通义灵码** - 固定使用通义
 
-支持的变量：
-- `{id}` - 工作项编号
-- `{title}` - 工作项标题
-- `{description}` - 工作项描述
+#### 3️⃣ 完成!
+
+- **Copilot**: 文件会自动附加,直接提问即可 ✨
+- **通义**: 手动粘贴(`Ctrl+V`)到聊天框
+
+### 工作流程
+
+#### 使用 GitHub Copilot
+
+1. 右键工作项 → **"发送到 GitHub Copilot"**
+2. 工作项信息会:
+   - 自动创建文件到 `.yunxiao/{Bug|Req|Task}/{id}_{title}.txt`
+   - 附加到 Copilot Chat
+   - 打开 Copilot 聊天面板
+3. 直接在 Copilot 中提问:
+   - "这个问题可能的原因是什么?"
+   - "给出解决方案"
+   - "写一个修复这个 Bug 的测试用例"
+
+#### 使用通义灵码
+
+1. 右键工作项 → **"发送到通义灵码"**
+2. 工作项信息自动复制到剪贴板
+3. 打开通义灵码聊天面板
+4. 在输入框按 `Ctrl+V` 粘贴并发送
+
+> 💡 **技术说明**:由于通义灵码暂未提供公开的 API,目前需要手动粘贴。
+
+### 配置说明
+
+#### 修改默认 AI
+
+在 VSCode 设置中搜索 `yunxiao.customAI.defaultAI`:
+
+```json
+{
+  "yunxiao.customAI.defaultAI": "copilot"  // 可选: copilot, tongyi, custom
+}
+```
+
+#### 自定义消息模板
+
+**Copilot 模板**:
+```json
+{
+  "yunxiao.copilotTemplate": "请帮我分析:\n\n{type} #{id} {title}\n\n{description}"
+}
+```
+
+**通义模板**:
+```json
+{
+  "yunxiao.tongyiTemplate": "{type} #{id} {title}\n\n详细描述:\n{description}"
+}
+```
+
+**支持的变量**:
 - `{type}` - 工作项类型
-- `{catetory}` - 工作项类型:Req,Bug...
-- `{status}` - 工作项状态
+- `{id}` - 工作项编号
+- `{title}` - 标题
+- `{description}` - 描述
+- `{status}` - 状态
+- `{assignee}` - 指派人
+- `{priority}` - 优先级
 
+#### 自定义 AI 配置(高级)
 
-默认模板：
-```
-{type} #{id} {title}
-{description}
+如果您想使用其他 AI 工具(如 Claude、Cursor 等):
+
+```json
+{
+  "yunxiao.customAI.defaultAI": "custom",
+  "yunxiao.customAI.extensionId": "Your.AI.Extension",  // 扩展 ID
+  "yunxiao.customAI.extensionName": "Your AI Name",  // 显示名称
+  "yunxiao.customAI.openCommand": "yourAI.openChat",  // 打开聊天命令
+  "yunxiao.customAI.attachCommand": "",  // 附加选择命令(可选)
+  "yunxiao.customAI.installUrl": "vscode:extension/Your.AI.Extension",  // 安装 URL
+  "yunxiao.customAI.template": "{type} #{id} {title}\n{description}"  // 消息模板
+}
 ```
 
-示例输出：
+### 文件管理
+
+使用支持附加的 AI(如 Copilot)时,文件保存在:
+
 ```
-#TEST-123 实现用户登录功能
-需要实现用户通过账号密码登录系统的功能，包括记住密码、忘记密码等功能。
+工作区/
+└── .yunxiao/
+    ├── Bug/         # 缺陷
+    ├── Req/         # 需求
+    └── Task/        # 任务
 ```
 
-您可以根据需要调整模板，例如：
-```
-[工作项] #{id}
-标题：{title}
-状态：{status}
-描述：{description}
-```
+**文件命名规则**:
+- 格式: `{id}_{title前60字符}.txt`
+- 示例: `TEST-123_修复登录问题.txt`
+- 重名自动递增: `TEST-123_修复登录问题(1).txt`
+
+### 常见问题
+
+#### Q: 如何找到扩展的命令 ID?
+
+**A**: 有几种方法:
+1. 查看扩展的 `package.json` 文件中的 `contributes.commands`
+2. 按 `F1` 输入 `Developer: Show All Commands`,搜索命令并查看详情
+3. 参考扩展的文档或 README
+
+#### Q: 自定义 AI 不支持 attachSelection 会怎样?
+
+**A**: 如果 `attachCommand` 为空:
+- 不会创建文件
+- 直接复制到剪贴板
+- 打开聊天面板
+- 提示用户手动粘贴
+
+#### Q: 文件会自动清理吗?
+
+**A**: 当前版本不会自动清理。建议:
+- 定期手动清理 `.yunxiao` 目录
+- 或保留有用的文件作为历史记录
 
 ### 前置条件
 
-需要安装通义灵码扩展：[Tongyi Lingma](vscode:extension/Alibaba-Cloud.tongyi-lingma)
+- **GitHub Copilot**: [GitHub Copilot](vscode:extension/GitHub.copilot-chat)
+- **通义灵码**: [Tongyi Lingma](vscode:extension/Alibaba-Cloud.tongyi-lingma)
 
-如果未安装，扩展会提示您前往安装或将消息复制到剪贴板。
+如果未安装,扩展会提示您前往安装。
 
 ## 粘贴格式模板
 
@@ -224,26 +325,34 @@ A: 请确保：
 2. VSCode 的源代码管理面板已打开
 3. 配置中的粘贴目标设置为"commit"
 
-### Q: 为什么不能自动发送到通义灵码？
+### Q: 为什么不能自动发送到通义灵码?
 
-A: 由于以下技术限制：
+A: 由于以下技术限制:
 1. 通义灵码暂未提供公开的 API 供其他扩展调用
-2. VSCode 扩展之间存在 WebView 隔离，无法直接操作彼此的界面元素
-3. 出于安全考虑，VSCode 不允许跨扩展直接操作 DOM
+2. VSCode 扩展之间存在 WebView 隔离,无法直接操作彼此的界面元素
+3. 出于安全考虑,VSCode 不允许跨扩展直接操作 DOM
 
-目前的复制到剪贴板方案是最稳定可靠的实现。我们会持续关注通义灵码的更新，一旦有相关 API 支持，将立即优化为自动发送功能！
+目前的复制到剪贴板方案是最稳定可靠的实现。我们会持续关注通义灵码的更新,一旦有相关 API 支持,将立即优化为自动发送功能!
 
-### Q: 支持哪些工作项类型？
+### Q: 支持哪些工作项类型?
 
-A: 支持云效中的所有工作项类型，包括：
-- 需求（Req）
-- 任务（Task）
-- 缺陷（Bug）
-- 风险（Risk）
-- 子任务（SubTask）
+A: 支持云效中的所有工作项类型,包括:
+- 需求(Req)
+- 任务(Task)
+- 缺陷(Bug)
+- 风险(Risk)
+- 子任务(SubTask)
 - 以及组织自定义的工作项类型
 
 ## 版本历史
+
+### 1.2.0 (2025-12-23)
+
+- ✨ 新增 AI 助手集成功能
+- 🤖 支持 GitHub Copilot、通义灵码、自定义 AI
+- 🎉 首次使用智能引导
+- 📁 自动文件管理(支持附加的 AI)
+- ⚙️ 自定义消息模板
 
 ### 1.0.0 (2025-12-19)
 
