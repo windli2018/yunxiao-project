@@ -26,6 +26,27 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager) {
     // 获取状态描述
     const stateDesc = stateManager ? stateManager.getStateDescription(workitem.workitemId) : '未操作';
     
+    // 检查描述是否包含htmlValue（处理对象或字符串格式）
+    const hasDescriptionHtmlValue = () => {
+        if (data.description?.htmlValue) {
+            // 如果description是对象且有htmlValue
+            return true;
+        }
+        
+        if (typeof data.description === 'string') {
+            try {
+                // 尝试解析字符串格式的description
+                const parsed = JSON.parse(data.description);
+                return !!parsed.htmlValue;
+            } catch (e) {
+                // 如果不是有效的JSON，返回false
+                return false;
+            }
+        }
+        
+        return false;
+    };
+    
     // 处理描述内容 - 优先使用htmlValue字段
     const getDescriptionContent = () => {
         // 优先使用 description.htmlValue（云效标准HTML格式）
@@ -33,20 +54,28 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager) {
             return data.description.htmlValue;
         }
         
-        // 降级方案：使用description字符串
+        // 检查字符串格式的description是否包含htmlValue
         if (typeof data.description === 'string') {
-            // 如果包含HTML标签，直接返回
-            const hasHtmlTags = /<[^>]+>/.test(data.description);
-            if (hasHtmlTags) {
-                return data.description;
+            try {
+                const parsed = JSON.parse(data.description);
+                if (parsed.htmlValue) {
+                    return parsed.htmlValue;
+                }
+            } catch (e) {
+                // 如果不是有效的JSON，按原始逻辑处理
+                // 如果包含HTML标签，直接返回
+                const hasHtmlTags = /<[^>]+>/.test(data.description);
+                if (hasHtmlTags) {
+                    return data.description;
+                }
+                // 纯文本，转义特殊字符后返回
+                return data.description
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
             }
-            // 纯文本，转义特殊字符后返回
-            return data.description
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
         }
         
         return '无描述';
@@ -261,7 +290,7 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager) {
             <div class="field-value">${stateDesc.replace(/\n/g, '<br>')}</div>
         </div>
         
-        ${details && details.description && !hasError ? `
+        ${details && hasDescriptionHtmlValue() && !hasError ? `
             <div class="section">
                 <div class="section-title">描述</div>
                 <div class="description">${getDescriptionContent()}</div>
@@ -313,7 +342,13 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager) {
                     this.classList.add('img-error');
                     const errorMsg = document.createElement('div');
                     errorMsg.className = 'img-error-msg';
-                    errorMsg.innerHTML = '⚠️ 图片加载失败（可能需要登录云效查看）: <a href="' + this.src + '" target="_blank" style="color: var(--vscode-textLink-foreground);">点击在浏览器打开</a>';
+                    // 构建工作项链接，与openInBrowser命令使用相同格式
+                    const category = '${data.category || data.categoryIdentifier || data.workitemType || "workitem"}' || 'workitem';
+                    const identifier = '${data.identifier || data.workitemId}' || 'unknown';
+                    const subject = '${data.subject || ""}' || '';
+                    const encodedSubject = encodeURIComponent(' ' + subject);
+                    const workItemLink = 'https://devops.aliyun.com/projex/' + category + '/' + identifier + '#' + encodedSubject;
+                    errorMsg.innerHTML = '⚠️ 图片加载失败（可能需要登录云效查看）: <a href="' + workItemLink + '" target="_blank" style="color: var(--vscode-textLink-foreground);">在浏览器中打开工作项</a>';
                     this.parentNode.insertBefore(errorMsg, this.nextSibling);
                 });
                 
