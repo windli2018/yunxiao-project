@@ -178,6 +178,75 @@ function getRepositoryRelativePath(repository) {
     return pathParts[pathParts.length - 1] || repoPath;
 }
 
+/**
+ * 安全地设置 QuickPick items，自动处理 quickPickItemTooltip API 不支持的情况
+ * @param {vscode.QuickPick} quickPick - QuickPick 实例
+ * @param {Array} items - 要设置的 items 数组
+ * @returns {boolean} 是否成功设置（包括降级处理）
+ */
+function safeSetQuickPickItems(quickPick, items) {
+    try {
+        quickPick.items = items;
+        return true;
+    } catch (error) {
+        // 检查是否是 quickPickItemTooltip API 提案错误
+        if (error.message && error.message.includes('quickPickItemTooltip')) {
+            console.warn('quickPickItemTooltip API 不支持，移除 tooltip 属性并重试');
+            // 移除所有 tooltip 属性
+            items.forEach(item => {
+                if (item.tooltip) {
+                    delete item.tooltip;
+                }
+            });
+            // 重试
+            try {
+                quickPick.items = items;
+                return true;
+            } catch (retryError) {
+                console.error('设置 QuickPick items 失败:', retryError);
+                return false;
+            }
+        } else {
+            // 其他错误直接抛出
+            throw error;
+        }
+    }
+}
+
+/**
+ * 记录工作项使用（统一处理最近使用记录和使用类型更新）
+ * @param {Object} workitem - 工作项对象
+ * @param {string} usageType - 使用类型：'paste' | 'sendToAI' | 'createBranch'
+ * @param {string} branchName - 创建的分支名称（仅 usageType 为 'createBranch' 时需要）
+ */
+function recordWorkItemUsage(workitem, usageType = 'paste', branchName = null) {
+    const item = workitem.data?.data || workitem.data || workitem;
+    
+    if (!item || !item.workitemId) {
+        console.warn('无效的工作项，无法记录使用');
+        return;
+    }
+    
+    // 1. 添加到最近使用
+    recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
+    
+    // 2. 更新使用类型状态
+    if (stateManager) {
+        if (usageType === 'paste') {
+            stateManager.markPastedToCommit(item.workitemId);
+        } else if (usageType === 'sendToAI') {
+            stateManager.markSentToAI(item.workitemId);
+        } else if (usageType === 'createBranch') {
+            stateManager.markPastedToCommit(item.workitemId, branchName);
+        }
+    }
+    
+    // 3. 刷新所有相关视图
+    workItemsTreeProvider.refresh();
+    recentTreeProvider.refresh();
+    searchTreeProvider.refresh();
+}
+
 async function checkIDEEnvironment() {
     try {
         const { isQoder, isTraeIDE, appName } = await detectIDEEnvironment();
@@ -431,7 +500,11 @@ async function sendToAIChat(workitem, config) {
         
         // 打开聊天面板（如果提供了 openCommand）
         if (config.openCommand && config.openCommand.trim() !== '') {
-            await vscode.commands.executeCommand(config.openCommand);
+            try{
+                await vscode.commands.executeCommand(config.openCommand);
+            } catch (error) {
+                console.error('打开聊天面板失败:', error);
+            }
         }
 
         // 使用状态栏消息，3秒后自动消失
@@ -594,8 +667,7 @@ function registerCommands(context) {
             switch (selected.action) {
                 case 'pasteWorkItem':
                     await pasteToCommit(selected.data);
-                    recentManager.addItem(selected.data.workitemId, RecentItemType.WorkItem, selected.data);
-                    recentTreeProvider.refresh();
+                    recordWorkItemUsage(selected.data, 'paste');
                     break;
                     
                 case 'switchProject':
@@ -788,12 +860,11 @@ function registerCommands(context) {
                 // 根据操作类型执行不同逻辑
                 switch (selected.action) {
                     case 'paste':
-                        // 添加到最近使用
-                        recentManager.addItem(selected.workitem.workitemId, RecentItemType.WorkItem, selected.workitem);
-                        recentTreeProvider.refresh();
-                        
                         // 粘贴到提交消息
                         await pasteToCommit(selected.workitem);
+                        
+                        // 记录使用（统一函数）
+                        recordWorkItemUsage(selected.workitem, 'paste');
                         break;
                         
                     case 'switchProject':
@@ -813,17 +884,8 @@ function registerCommands(context) {
             if (workitem) {
                 await pasteToCommit(workitem, sourceControl);
                 
-                // 记录状态
-                const item = workitem.data?.data || workitem.data || workitem;
-                if (item.workitemId) {
-                    stateManager.markPastedToCommit(item.workitemId);
-                    workItemsTreeProvider.refresh();
-                    recentTreeProvider.refresh();
-                    searchTreeProvider.refresh();
-                }
-                
-                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
-                recentTreeProvider.refresh();
+                // 记录使用（统一函数）
+                recordWorkItemUsage(workitem, 'paste');
             }
         }),
         
@@ -898,16 +960,8 @@ function registerCommands(context) {
                 // 粘贴到提交消息
                 await pasteToCommit(workitem, sourceControl);
                 
-                // 记录状态
-                if (item.workitemId) {
-                    stateManager.markPastedToCommit(item.workitemId, branchName);
-                    workItemsTreeProvider.refresh();
-                    recentTreeProvider.refresh();
-                    searchTreeProvider.refresh();
-                }
-                
-                recentManager.addItem(item.workitemId, RecentItemType.WorkItem, item);
-                recentTreeProvider.refresh();
+                // 记录使用（统一函数）
+                recordWorkItemUsage(workitem, 'createBranch', branchName);
                 
             } catch (error) {
                 console.error('创建分支失败:', error);
@@ -1354,12 +1408,11 @@ function registerCommands(context) {
                     results.map(w => ({ label: `#${w.identifier} ${w.subject}`, workitem: w }))
                 );
                 if (selected) {
-                    // 添加到最近使用
-                    recentManager.addItem(selected.workitem.workitemId, RecentItemType.WorkItem, selected.workitem);
-                    recentTreeProvider.refresh();
-                    
                     // 粘贴到提交消息
                     await pasteToCommit(selected.workitem);
+                    
+                    // 记录使用（统一函数）
+                    recordWorkItemUsage(selected.workitem, 'paste');
                 }
             }
         }),
@@ -1659,12 +1712,11 @@ function registerCommands(context) {
                     });
                             
                     if (selected) {
-                        // 添加到最近使用
-                        recentManager.addItem(selected.workitem.workitemId, RecentItemType.WorkItem, selected.workitem);
-                        recentTreeProvider.refresh();
-                                
                         // 粘贴到提交消息
                         await pasteToCommit(selected.workitem);
+                        
+                        // 记录使用（统一函数）
+                        recordWorkItemUsage(selected.workitem, 'paste');
                     }
                 } else {
                     vscode.window.showInformationMessage(`未找到包含 "${searchData.keyword}" 的工作项`);
@@ -1786,7 +1838,7 @@ function registerCommands(context) {
                                 label: label,
                                 description: `${workitem.workitemType} - ${workitem.status}`,
                                 detail: `项目: ${currentProject.projectName} | 使用 ${item.useCount} 次`,
-                                // tooltip: tooltip,
+                                tooltip: tooltip,
                                 iconPath: iconPath,
                                 workitem: workitem,
                                 isRecent: true,
@@ -1817,7 +1869,7 @@ function registerCommands(context) {
                 });
                 
                 // 设置初始项（最近使用）
-                quickPick.items = recentItems;
+                safeSetQuickPickItems(quickPick, recentItems);
                 
                 // 监听输入变化，实时搜索
                 let searchTimeout;
@@ -1829,7 +1881,7 @@ function registerCommands(context) {
                     
                     // 如果输入为空，显示最近使用
                     if (!value || value.trim() === '') {
-                        quickPick.items = recentItems;
+                        safeSetQuickPickItems(quickPick, recentItems);
                         quickPick.busy = false;
                         return;
                     }
@@ -1920,7 +1972,7 @@ function registerCommands(context) {
                                         label: label,
                                         description: `${w.workitemType} - ${w.status}`,
                                         detail: `项目: ${currentProject.projectName}`,
-                                        // tooltip: tooltip,
+                                        tooltip: tooltip,
                                         iconPath: iconPath,
                                         workitem: w,
                                         isRecent: false,
@@ -1955,7 +2007,9 @@ function registerCommands(context) {
                                 });
                             }
                             
-                            quickPick.items = searchItems;
+                            // 尝试设置 items，如果失败则移除 tooltip
+                            safeSetQuickPickItems(quickPick, searchItems);
+                            
                             quickPick.busy = false;
                         } catch (error) {
                             console.error('搜索失败:', error);
@@ -1975,7 +2029,7 @@ function registerCommands(context) {
                         // 清除输入框内容
                         quickPick.value = '';
                         // 恢复到最近使用列表
-                        quickPick.items = recentItems;
+                        safeSetQuickPickItems(quickPick, recentItems);
                         quickPick.busy = false;
                     }
                 });
@@ -2026,12 +2080,11 @@ function registerCommands(context) {
                             // 不隐藏 QuickPick，让用户看到搜索结果
                         }
                     } else if (selected && selected.workitem) {
-                        // 添加到最近使用
-                        recentManager.addItem(selected.workitem.workitemId, RecentItemType.WorkItem, selected.workitem);
-                        recentTreeProvider.refresh();
-                        
                         // 粘贴到提交消息，传递 sourceControl 上下文
                         await pasteToCommit(selected.workitem, sourceControl);
+                        
+                        // 记录使用（统一函数）
+                        recordWorkItemUsage(selected.workitem, 'paste');
                         
                         quickPick.hide();
                     }
