@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速关联工作项到提交消息",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -439,7 +439,7 @@
         },
         "yunxiao.pasteTemplate": {
           "type": "string",
-          "default": "{type} #{id} {title}",
+          "default": "#{id} {type} {title}",
           "description": "%yunxiao.pasteTemplate.description%",
           "scope": "window"
         },

@@ -2152,7 +2152,7 @@ function replaceTemplate(template, variables, sanitize) {
  * @param {Function} sanitize - 可选的清理函数，对所有变量值进行清理（如分支命名需要移除非法字符）
  * @returns {Promise<string>} 格式化后的文本
  */
-async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTemplate = '{type} #{id} {title}', sanitize = null) {
+async function formatWorkItem(workitem, templateKey = 'pasteTemplate', defaultTemplate = '#{id} {type} {title}', sanitize = null) {
     const config = vscode.workspace.getConfiguration('yunxiao');
     const template = config.get(templateKey, defaultTemplate);
     

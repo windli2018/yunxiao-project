@@ -105,7 +105,7 @@
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `yunxiao.pasteTarget` | 粘贴目标位置 | "commit" |
-| `yunxiao.pasteTemplate` | 粘贴格式模板 | "#{id} {title}" |
+| `yunxiao.pasteTemplate` | 粘贴格式模板 | "#{id} {type} {title}" |
 | `yunxiao.includeTypeLabel` | 包含工作项类型标签 | false |
 | `yunxiao.includeStatus` | 包含工作项状态 | false |
 | `yunxiao.includeLink` | 包含工作项链接 | false |
@@ -122,9 +122,9 @@
 | 配置项 | 说明 | 默认值 |
 |--------|------|--------|
 | `yunxiao.customAI.defaultAI` | 默认 AI 助手 | "" (首次使用显示引导) |
-| `yunxiao.tongyiTemplate` | 发送到通义灵码的消息模板 | "#{id} {title}\n{description}" |
-| `yunxiao.copilotTemplate` | 发送到 Copilot 的消息模板 | "#{id} {title}\n{description}" |
-| `yunxiao.traeTemplate` | 发送到 TRAE AI 的消息模板 | "#{id} {title}\n{description}" |
+| `yunxiao.tongyiTemplate` | 发送到通义灵码的消息模板 | "{type} #{id} {title}\n{description}" |
+| `yunxiao.copilotTemplate` | 发送到 Copilot 的消息模板 | "{type} #{id} {title}\n{description}" |
+| `yunxiao.traeTemplate` | 发送到 TRAE AI 的消息模板 | "{type} #{id} {title}\n{description}" |
 | `yunxiao.branchNameTemplate` | 分支命名模板 | "{category}_{id}" |
 | `yunxiao.maxRecentProjects` | 最近使用项目数量上限 | 20 |
 | `yunxiao.maxRecentWorkItems` | 最近使用工作项数量上限 | 50 |
@@ -348,12 +348,12 @@
 示例模板：
 
 ```
-#{id} {title}
+#{id} {type} {title}
 ```
 
 输出：
 ```
-#TEST-123 实现用户登录功能
+#TEST-123 需求 实现用户登录功能
 ```
 
 带类型标签的模板：
