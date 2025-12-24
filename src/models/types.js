@@ -33,7 +33,10 @@ const WorkItemType = {
 const RecentItemType = {
     Project: 'project',
     WorkItem: 'workitem',
-    SearchKeyword: 'search-keyword'  // 最近搜索关键词
+    SearchKeyword: 'search-keyword',  // 最近搜索关键词
+    CodeGroup: 'code-group',  // 代码分组
+    CodeRepo: 'code-repo',  // 代码仓库
+    CodeBranch: 'code-branch'  // 代码分支
 };
 
 module.exports = {

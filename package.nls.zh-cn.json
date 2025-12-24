@@ -1,9 +1,14 @@
 {
   "yunxiao.activitybar.title": "云效工作项",
+  "yunxiao.code.activitybar.title": "云效代码仓库",
   "yunxiao.projects.title": "项目",
   "yunxiao.workitems.title": "工作项",
   "yunxiao.recent.title": "最近使用",
   "yunxiao.search.title": "搜索",
+  "yunxiao.code.groups.title": "代码分组",
+  "yunxiao.code.repos.title": "代码仓库",
+  "yunxiao.code.branches.title": "代码分支",
+  "yunxiao.code.recent.title": "最近使用(代码)",
   
   "yunxiao.login.title": "云效：登录",
   "yunxiao.logout.title": "云效：退出登录/切换账户",
@@ -37,6 +42,23 @@
   "yunxiao.sendToAI.title": "发送到 AI 助手",
   "yunxiao.createBranchAndPasteToCommit.title": "新建分支并粘贴提交",
   "yunxiao.viewWorkItemProperties.title": "查看属性",
+  "yunxiao.code.toggleGroupFavorite.title": "切换分组收藏",
+  "yunxiao.code.toggleRepoFavorite.title": "切换仓库收藏",
+  "yunxiao.code.toggleBranchFavorite.title": "切换分支收藏",
+  "yunxiao.code.refreshGroups.title": "刷新代码分组",
+  "yunxiao.code.refreshRepos.title": "刷新代码仓库",
+  "yunxiao.code.refreshBranches.title": "刷新代码分支",
+  "yunxiao.code.refreshRecent.title": "刷新最近使用",
+  "yunxiao.code.selectRepository.title": "选择代码仓库",
+  "yunxiao.code.toggleRepoViewMode.title": "切换仓库视图模式",
+  "yunxiao.code.loadMoreRepos.title": "加载更多仓库",
+  "yunxiao.code.createMergeRequest.title": "创建合并请求",
+  "yunxiao.code.openGroupInBrowser.title": "在浏览器中打开分组",
+  "yunxiao.code.openRepoInBrowser.title": "在浏览器中打开仓库",
+  "yunxiao.code.openBranchInBrowser.title": "在浏览器中打开分支",
+  "yunxiao.code.showCurrentRepository.title": "当前仓库",
+  "yunxiao.code.checkoutRepository.title": "签出仓库",
+  "yunxiao.code.checkoutBranch.title": "签出分支",
   
   "yunxiao.configuration.title": "云效工作项助手配置",
   "yunxiao.domain.description": "云效 API 服务域名",
@@ -66,5 +88,8 @@
   "yunxiao.customAI.attachCommand.description": "附加选中内容到聊天的 VSCode 命令（可选，如果不支持则留空，例如：'github.copilot.chat.attachSelection'）",
   "yunxiao.customAI.installUrl.description": "安装 AI 扩展的 URL（例如：'vscode:extension/GitHub.copilot-chat'）",
   "yunxiao.customAI.template.description": "发送到自定义 AI 的消息模板，支持变量：{type}、{id}、{title}、{description}、{status}、{assignee}、{priority}",
-  "yunxiao.branchNameTemplate.description": "新建分支时的命名模板，支持变量：{category}（工作项类型）、{id}（工作项标识符）、{title}（工作项标题）、{date}（当前日期）"
+  "yunxiao.branchNameTemplate.description": "新建分支时的命名模板，支持变量：{category}（工作项类型）、{id}（工作项标识符）、{title}（工作项标题）、{date}（当前日期）",
+  "yunxiao.autoOpenMergeRequestInBrowser.description": "创建合并请求后是否自动在浏览器中打开",
+  "yunxiao.autoOpenMergeRequestInBrowser.ask": "总是询问（默认）",
+  "yunxiao.autoOpenMergeRequestInBrowser.always": "自动打开"
 }

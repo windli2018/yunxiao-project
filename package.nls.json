@@ -1,9 +1,14 @@
 {
   "yunxiao.activitybar.title": "Yunxiao Work Items",
+  "yunxiao.code.activitybar.title": "Yunxiao Code Repository",
   "yunxiao.projects.title": "Projects",
   "yunxiao.workitems.title": "Work Items",
   "yunxiao.recent.title": "Recent",
   "yunxiao.search.title": "Search",
+  "yunxiao.code.groups.title": "Code Groups",
+  "yunxiao.code.repos.title": "Code Repositories",
+  "yunxiao.code.branches.title": "Code Branches",
+  "yunxiao.code.recent.title": "Recent (Code)",
   
   "yunxiao.login.title": "Yunxiao: Login",
   "yunxiao.logout.title": "Yunxiao: Logout / Switch Account",
@@ -37,6 +42,23 @@
   "yunxiao.sendToAI.title": "Send to AI Assistant",
   "yunxiao.createBranchAndPasteToCommit.title": "Create Branch and Paste to Commit",
   "yunxiao.viewWorkItemProperties.title": "View Properties",
+  "yunxiao.code.toggleGroupFavorite.title": "Toggle Group Favorite",
+  "yunxiao.code.toggleRepoFavorite.title": "Toggle Repository Favorite",
+  "yunxiao.code.toggleBranchFavorite.title": "Toggle Branch Favorite",
+  "yunxiao.code.refreshGroups.title": "Refresh Code Groups",
+  "yunxiao.code.refreshRepos.title": "Refresh Code Repositories",
+  "yunxiao.code.refreshBranches.title": "Refresh Code Branches",
+  "yunxiao.code.refreshRecent.title": "Refresh Recent",
+  "yunxiao.code.selectRepository.title": "Select Code Repository",
+  "yunxiao.code.toggleRepoViewMode.title": "Toggle Repository View Mode",
+  "yunxiao.code.loadMoreRepos.title": "Load More Repositories",
+  "yunxiao.code.createMergeRequest.title": "Create Merge Request",
+  "yunxiao.code.openGroupInBrowser.title": "Open Group in Browser",
+  "yunxiao.code.openRepoInBrowser.title": "Open Repository in Browser",
+  "yunxiao.code.openBranchInBrowser.title": "Open Branch in Browser",
+  "yunxiao.code.showCurrentRepository.title": "Current Repository",
+  "yunxiao.code.checkoutRepository.title": "Checkout Repository",
+  "yunxiao.code.checkoutBranch.title": "Checkout Branch",
   
   "yunxiao.configuration.title": "Yunxiao Work Item Helper Configuration",
   "yunxiao.domain.description": "Yunxiao API service domain",
@@ -66,5 +88,8 @@
   "yunxiao.customAI.attachCommand.description": "VSCode command to attach selection to chat (optional, leave empty if not supported, e.g., 'github.copilot.chat.attachSelection')",
   "yunxiao.customAI.installUrl.description": "URL to install the AI extension (e.g., 'vscode:extension/GitHub.copilot-chat')",
   "yunxiao.customAI.template.description": "Message template for sending to custom AI. Available variables: {type}, {id}, {title}, {description}, {status}, {assignee}, {priority}",
-  "yunxiao.branchNameTemplate.description": "Branch naming template when creating new branch, supports variables: {category} (work item type), {id} (work item identifier), {title} (work item title), {date} (current date)"
+  "yunxiao.branchNameTemplate.description": "Branch naming template when creating new branch, supports variables: {category} (work item type), {id} (work item identifier), {title} (work item title), {date} (current date)",
+  "yunxiao.autoOpenMergeRequestInBrowser.description": "Automatically open merge request in browser after creation",
+  "yunxiao.autoOpenMergeRequestInBrowser.ask": "Always ask (default)",
+  "yunxiao.autoOpenMergeRequestInBrowser.always": "Always open"
 }

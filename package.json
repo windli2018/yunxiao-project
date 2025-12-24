@@ -43,6 +43,11 @@
           "id": "yunxiao-workitem",
           "title": "%yunxiao.activitybar.title%",
           "icon": "images/icons/bar_icon.svg"
+        },
+        {
+          "id": "yunxiao-code",
+          "title": "%yunxiao.code.activitybar.title%",
+          "icon": "images/icons/code_repo_icon.svg"
         }
       ]
     },
@@ -59,7 +64,21 @@
         {
           "id": "yunxiao.recent",
           "name": "%yunxiao.recent.title%"
-        }       
+        }
+      ],
+      "yunxiao-code": [
+        {
+          "id": "yunxiao.code.repos",
+          "name": "%yunxiao.code.repos.title%"
+        },
+        {
+          "id": "yunxiao.code.branches",
+          "name": "%yunxiao.code.branches.title%"
+        },
+        {
+          "id": "yunxiao.code.recent",
+          "name": "%yunxiao.code.recent.title%"
+        }
       ]
     },
     "removedViews":[
@@ -228,6 +247,91 @@
         "command": "yunxiao.viewWorkItemProperties",
         "title": "%yunxiao.viewWorkItemProperties.title%",
         "icon": "$(info)"
+      },
+      {
+        "command": "yunxiao.code.toggleGroupFavorite",
+        "title": "%yunxiao.code.toggleGroupFavorite.title%",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "yunxiao.code.toggleRepoFavorite",
+        "title": "%yunxiao.code.toggleRepoFavorite.title%",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "yunxiao.code.toggleBranchFavorite",
+        "title": "%yunxiao.code.toggleBranchFavorite.title%",
+        "icon": "$(star-empty)"
+      },
+      {
+        "command": "yunxiao.code.refreshGroups",
+        "title": "%yunxiao.code.refreshGroups.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.code.refreshRepos",
+        "title": "%yunxiao.code.refreshRepos.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.code.refreshBranches",
+        "title": "%yunxiao.code.refreshBranches.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.code.refreshRecent",
+        "title": "%yunxiao.code.refreshRecent.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "yunxiao.code.selectRepository",
+        "title": "%yunxiao.code.selectRepository.title%",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "yunxiao.code.toggleRepoViewMode",
+        "title": "%yunxiao.code.toggleRepoViewMode.title%",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "yunxiao.code.loadMoreRepos",
+        "title": "%yunxiao.code.loadMoreRepos.title%",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "yunxiao.code.createMergeRequest",
+        "title": "%yunxiao.code.createMergeRequest.title%",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "yunxiao.code.openGroupInBrowser",
+        "title": "%yunxiao.code.openGroupInBrowser.title%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "yunxiao.code.openRepoInBrowser",
+        "title": "%yunxiao.code.openRepoInBrowser.title%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "yunxiao.code.openBranchInBrowser",
+        "title": "%yunxiao.code.openBranchInBrowser.title%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "yunxiao.code.showCurrentRepository",
+        "title": "%yunxiao.code.showCurrentRepository.title%",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "yunxiao.code.checkoutRepository",
+        "title": "%yunxiao.code.checkoutRepository.title%",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "yunxiao.code.checkoutBranch",
+        "title": "%yunxiao.code.checkoutBranch.title%",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
@@ -255,6 +359,36 @@
         {
           "command": "yunxiao.clearAllRecent",
           "when": "view == yunxiao.recent",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.code.refreshGroups",
+          "when": "view == yunxiao.code.groups",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.code.refreshRepos",
+          "when": "view == yunxiao.code.repos",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.code.toggleRepoViewMode",
+          "when": "view == yunxiao.code.repos",
+          "group": "navigation@2"
+        },
+        {
+          "command": "yunxiao.code.refreshBranches",
+          "when": "view == yunxiao.code.branches",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yunxiao.code.showCurrentRepository",
+          "when": "view == yunxiao.code.branches",
+          "group": "navigation@2"
+        },
+        {
+          "command": "yunxiao.code.refreshRecent",
+          "when": "view == yunxiao.code.recent",
           "group": "navigation@1"
         }
       ],
@@ -353,6 +487,66 @@
           "command": "yunxiao.removeFromRecent",
           "when": "viewItem == recent-search-keyword",
           "group": "4_recent@1"
+        },
+        {
+          "command": "yunxiao.code.toggleGroupFavorite",
+          "when": "viewItem == code-group",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.toggleGroupFavorite",
+          "when": "viewItem == code-group-favorited",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.openGroupInBrowser",
+          "when": "viewItem == code-group || viewItem == code-group-favorited",
+          "group": "inline@2"
+        },
+        {
+          "command": "yunxiao.code.toggleRepoFavorite",
+          "when": "viewItem == code-repository",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.toggleRepoFavorite",
+          "when": "viewItem == code-repository-favorited",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.openRepoInBrowser",
+          "when": "viewItem == code-repository || viewItem == code-repository-favorited",
+          "group": "inline@2"
+        },
+        {
+          "command": "yunxiao.code.toggleBranchFavorite",
+          "when": "viewItem == code-branch",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.toggleBranchFavorite",
+          "when": "viewItem == code-branch-favorited",
+          "group": "inline@1"
+        },
+        {
+          "command": "yunxiao.code.createMergeRequest",
+          "when": "viewItem == code-branch || viewItem == code-branch-favorited",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "yunxiao.code.openBranchInBrowser",
+          "when": "viewItem == code-branch || viewItem == code-branch-favorited",
+          "group": "inline@2"
+        },
+        {
+          "command": "yunxiao.code.checkoutRepository",
+          "when": "viewItem == code-repository || viewItem == code-repository-favorited",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "yunxiao.code.checkoutBranch",
+          "when": "viewItem == code-branch || viewItem == code-branch-favorited",
+          "group": "1_actions@2"
         }
       ],
       "scm/title": [
@@ -568,6 +762,17 @@
           "type": "string",
           "default": "{category}_{id}",
           "description": "%yunxiao.branchNameTemplate.description%",
+          "scope": "window"
+        },
+        "yunxiao.autoOpenMergeRequestInBrowser": {
+          "type": "string",
+          "enum": ["ask", "always"],
+          "default": "ask",
+          "description": "%yunxiao.autoOpenMergeRequestInBrowser.description%",
+          "enumDescriptions": [
+            "%yunxiao.autoOpenMergeRequestInBrowser.ask%",
+            "%yunxiao.autoOpenMergeRequestInBrowser.always%"
+          ],
           "scope": "window"
         }
       }

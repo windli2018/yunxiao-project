@@ -67,6 +67,14 @@ class CacheManager {
 
         keysToDelete.forEach(key => this.delete(key));
     }
+
+    /**
+     * 获取所有缓存键
+     * @returns {Array<string>} 所有缓存键的数组
+     */
+    getAllKeys() {
+        return Array.from(this.cache.keys());
+    }
 }
 
 module.exports = { CacheManager };

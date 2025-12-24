@@ -79,6 +79,30 @@ class RecentManager {
     }
 
     /**
+     * 获取最近使用的代码分组
+     */
+    getRecentCodeGroups(limit) {
+        const codeGroups = this.recentItems.filter(item => item.itemType === RecentItemType.CodeGroup);
+        return limit ? codeGroups.slice(0, limit) : codeGroups;
+    }
+
+    /**
+     * 获取最近使用的代码仓库
+     */
+    getRecentCodeRepos(limit) {
+        const codeRepos = this.recentItems.filter(item => item.itemType === RecentItemType.CodeRepo);
+        return limit ? codeRepos.slice(0, limit) : codeRepos;
+    }
+
+    /**
+     * 获取最近使用的代码分支
+     */
+    getRecentCodeBranches(limit) {
+        const codeBranches = this.recentItems.filter(item => item.itemType === RecentItemType.CodeBranch);
+        return limit ? codeBranches.slice(0, limit) : codeBranches;
+    }
+
+    /**
      * 获取所有最近使用项
      */
     getAllRecentItems(limit) {
@@ -178,11 +202,17 @@ class RecentManager {
         const maxProjects = config.get('maxRecentProjects', 20);
         const maxWorkItems = config.get('maxRecentWorkItems', 50);
         const maxSearchKeywords = 10;  // 最多保留 10 个搜索关键词
+        const maxCodeGroups = 10;  // 最多保留 10 个代码分组
+        const maxCodeRepos = 20;  // 最多保留 20 个代码仓库
+        const maxCodeBranches = 30;  // 最多保留 30 个代码分支
 
-        // 分别限制项目、工作项和搜索关键词数量
+        // 分别限制项目、工作项、搜索关键词和代码相关类型的数量
         const projects = this.recentItems.filter(item => item.itemType === RecentItemType.Project);
         const workitems = this.recentItems.filter(item => item.itemType === RecentItemType.WorkItem);
         const searchKeywords = this.recentItems.filter(item => item.itemType === RecentItemType.SearchKeyword);
+        const codeGroups = this.recentItems.filter(item => item.itemType === RecentItemType.CodeGroup);
+        const codeRepos = this.recentItems.filter(item => item.itemType === RecentItemType.CodeRepo);
+        const codeBranches = this.recentItems.filter(item => item.itemType === RecentItemType.CodeBranch);
 
         if (projects.length > maxProjects) {
             // 按分数排序，保留分数高的
@@ -214,6 +244,45 @@ class RecentManager {
         if (searchKeywords.length > maxSearchKeywords) {
             searchKeywords.sort((a, b) => b.score - a.score);
             const toRemove = searchKeywords.slice(maxSearchKeywords);
+            toRemove.forEach(item => {
+                const index = this.recentItems.findIndex(
+                    i => i.itemId === item.itemId && i.itemType === item.itemType
+                );
+                if (index >= 0) {
+                    this.recentItems.splice(index, 1);
+                }
+            });
+        }
+
+        if (codeGroups.length > maxCodeGroups) {
+            codeGroups.sort((a, b) => b.score - a.score);
+            const toRemove = codeGroups.slice(maxCodeGroups);
+            toRemove.forEach(item => {
+                const index = this.recentItems.findIndex(
+                    i => i.itemId === item.itemId && i.itemType === item.itemType
+                );
+                if (index >= 0) {
+                    this.recentItems.splice(index, 1);
+                }
+            });
+        }
+
+        if (codeRepos.length > maxCodeRepos) {
+            codeRepos.sort((a, b) => b.score - a.score);
+            const toRemove = codeRepos.slice(maxCodeRepos);
+            toRemove.forEach(item => {
+                const index = this.recentItems.findIndex(
+                    i => i.itemId === item.itemId && i.itemType === item.itemType
+                );
+                if (index >= 0) {
+                    this.recentItems.splice(index, 1);
+                }
+            });
+        }
+
+        if (codeBranches.length > maxCodeBranches) {
+            codeBranches.sort((a, b) => b.score - a.score);
+            const toRemove = codeBranches.slice(maxCodeBranches);
             toRemove.forEach(item => {
                 const index = this.recentItems.findIndex(
                     i => i.itemId === item.itemId && i.itemType === item.itemType

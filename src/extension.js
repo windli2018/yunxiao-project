@@ -8,7 +8,11 @@ const { ProjectManager } = require('./managers/projectManager');
 const { WorkItemManager } = require('./managers/workItemManager');
 const { RecentManager } = require('./managers/recentManager');
 const { WorkItemStateManager } = require('./managers/workItemStateManager');
+const { CodeGroupManager } = require('./managers/codeGroupManager');
+const { CodeRepoManager } = require('./managers/codeRepoManager');
+const { CodeBranchManager } = require('./managers/codeBranchManager');
 const { ProjectsTreeProvider, WorkItemsTreeProvider, RecentTreeProvider, SearchTreeProvider, getWorkItemIconName, getWorkItemIconWithState, getWorkItemIconLabel, getWorkItemStateDescription } = require('./views/treeViewProviders');
+const { CodeGroupsTreeProvider, CodeReposTreeProvider, CodeBranchesTreeProvider, CodeRecentTreeProvider } = require('./views/codeTreeProviders');
 const { getWorkItemPropertiesHtml } = require('./views/workItemPropertiesWebView');
 const { RecentItemType } = require('./models/types');
 const { getCategoryName } = require('./config/workitemTypes');
@@ -20,12 +24,18 @@ let projectManager;
 let workItemManager;
 let recentManager;
 let stateManager;
+let codeGroupManager;
+let codeRepoManager;
+let codeBranchManager;
 let statusBarItem;
 
 let projectsTreeProvider;
 let workItemsTreeProvider;
 let recentTreeProvider;
 let searchTreeProvider;
+let codeReposTreeProvider;
+let codeBranchesTreeProvider;
+let codeRecentTreeProvider;
 
 /**
  * AI 配置定义
@@ -179,6 +189,47 @@ function getRepositoryRelativePath(repository) {
 }
 
 /**
+ * 在浏览器中打开合并请求，根据用户配置自动打开或询问
+ * @param {string} mrTitle - 合并请求标题
+ * @param {string} mrUrl - 合并请求URL
+ * @param {boolean} isExisting - 是否是已存在的MR（用于消息提示）
+ */
+async function openMergeRequestInBrowser(mrTitle, mrUrl, isExisting = false) {
+    if (!mrUrl) {
+        return;
+    }
+    
+    const config = vscode.workspace.getConfiguration('yunxiao');
+    const autoOpen = config.get('autoOpenMergeRequestInBrowser', 'ask');
+    
+    const successMessage = isExisting 
+        ? `已存在相同的合并请求: ${mrTitle}`
+        : `合并请求创建成功: ${mrTitle}`;
+    
+    if (autoOpen === 'always') {
+        // 自动打开浏览器
+        await vscode.env.openExternal(vscode.Uri.parse(mrUrl));
+        vscode.window.showInformationMessage(successMessage);
+    } else {
+        // 询问用户
+        const selection = await vscode.window.showInformationMessage(
+            successMessage,
+            '在浏览器中打开',
+            '下次自动打开'
+        );
+        
+        if (selection === '在浏览器中打开') {
+            await vscode.env.openExternal(vscode.Uri.parse(mrUrl));
+        } else if (selection === '下次自动打开') {
+            // 更新配置并打开浏览器
+            await config.update('autoOpenMergeRequestInBrowser', 'always', vscode.ConfigurationTarget.Global);
+            await vscode.env.openExternal(vscode.Uri.parse(mrUrl));
+            vscode.window.showInformationMessage('已设置为自动打开，可在设置中重置');
+        }
+    }
+}
+
+/**
  * 安全地设置 QuickPick items，自动处理 quickPickItemTooltip API 不支持的情况
  * @param {vscode.QuickPick} quickPick - QuickPick 实例
  * @param {Array} items - 要设置的 items 数组
@@ -308,6 +359,275 @@ async function getUniqueFilePath(dirPath, baseFilename, ext) {
     }
     
     return filePath;
+}
+
+/**
+ * 检查目录是否存在
+ * @param {string} dirPath - 目录路径
+ * @returns {Promise<boolean>}
+ */
+async function directoryExists(dirPath) {
+    try {
+        const stat = await fs.stat(dirPath);
+        return stat.isDirectory();
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * 选择代码仓库签出位置
+ * @param {string} repoName - 仓库名称
+ * @returns {Promise<string|null>} 签出路径，如果用户取消则返回null
+ */
+async function selectCheckoutLocation(repoName) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    
+    // 情兵1：没有打开项目，让用户选择位置
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        const uris = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: '选择签出位置',
+            title: `选择 ${repoName} 的签出位置`
+        });
+        
+        if (!uris || uris.length === 0) {
+            return null;
+        }
+        
+        const targetPath = path.join(uris[0].fsPath, repoName);
+        
+        // 检查目录是否已存在
+        if (await directoryExists(targetPath)) {
+            const retry = await vscode.window.showWarningMessage(
+                `目录 ${targetPath} 已存在，为防止覆盖文件，请选择其他位置。`,
+                '重新选择',
+                '取消'
+            );
+            
+            if (retry === '重新选择') {
+                return await selectCheckoutLocation(repoName);
+            }
+            return null;
+        }
+        
+        return targetPath;
+    }
+    
+    // 情兵2：打开了多个项目，让用户选择
+    if (workspaceFolders.length > 1) {
+        const items = workspaceFolders.map(folder => ({
+            label: folder.name,
+            description: folder.uri.fsPath,
+            folder: folder
+        }));
+        
+        items.push({
+            label: '$(folder) 选择其他位置...',
+            description: '浏览文件系统选择位置',
+            folder: null
+        });
+        
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: `选择 ${repoName} 的签出位置`
+        });
+        
+        if (!selected) {
+            return null;
+        }
+        
+        if (!selected.folder) {
+            // 用户选择其他位置
+            const uris = await vscode.window.showOpenDialog({
+                canSelectFiles: false,
+                canSelectFolders: true,
+                canSelectMany: false,
+                openLabel: '选择签出位置',
+                title: `选择 ${repoName} 的签出位置`
+            });
+            
+            if (!uris || uris.length === 0) {
+                return null;
+            }
+            
+            const targetPath = path.join(uris[0].fsPath, repoName);
+            
+            // 检查目录是否已存在
+            if (await directoryExists(targetPath)) {
+                const retry = await vscode.window.showWarningMessage(
+                    `目录 ${targetPath} 已存在，为防止覆盖文件，请选择其他位置。`,
+                    '重新选择',
+                    '取消'
+                );
+                
+                if (retry === '重新选择') {
+                    return await selectCheckoutLocation(repoName);
+                }
+                return null;
+            }
+            
+            return targetPath;
+        }
+        
+        const targetPath = path.join(selected.folder.uri.fsPath, repoName);
+        
+        // 检查目录是否已存在
+        if (await directoryExists(targetPath)) {
+            const retry = await vscode.window.showWarningMessage(
+                `目录 ${targetPath} 已存在，为防止覆盖文件，请选择其他位置。`,
+                '重新选择',
+                '取消'
+            );
+            
+            if (retry === '重新选择') {
+                return await selectCheckoutLocation(repoName);
+            }
+            return null;
+        }
+        
+        return targetPath;
+    }
+    
+    // 情兵3：只打开了一个项目，在项目主目录下签出
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    const targetPath = path.join(workspaceRoot, repoName);
+    
+    // 检查目录是否已存在
+    if (await directoryExists(targetPath)) {
+        const retry = await vscode.window.showWarningMessage(
+            `目录 ${targetPath} 已存在，为防止覆盖文件，请选择其他位置。`,
+            '选择其他位置',
+            '取消'
+        );
+        
+        if (retry === '选择其他位置') {
+            const uris = await vscode.window.showOpenDialog({
+                canSelectFiles: false,
+                canSelectFolders: true,
+                canSelectMany: false,
+                openLabel: '选择签出位置',
+                title: `选择 ${repoName} 的签出位置`,
+                defaultUri: vscode.Uri.file(workspaceRoot)
+            });
+            
+            if (!uris || uris.length === 0) {
+                return null;
+            }
+            
+            const newTargetPath = path.join(uris[0].fsPath, repoName);
+            
+            // 再次检查
+            if (await directoryExists(newTargetPath)) {
+                vscode.window.showErrorMessage(`目录 ${newTargetPath} 已存在，无法签出。`);
+                return null;
+            }
+            
+            return newTargetPath;
+        }
+        return null;
+    }
+    
+    return targetPath;
+}
+
+/**
+ * 克隆代码仓库
+ * @param {string} url - 仓库克隆URL
+ * @param {string} targetPath - 目标路径
+ * @param {string} branch - 要签出的分支
+ */
+async function cloneRepository(url, targetPath, branch) {
+    return vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `正在克隆仓库${branch ? ` (分支: ${branch})` : ''}...`,
+        cancellable: false
+    }, async (progress) => {
+        try {
+            // 获取Git扩展API
+            const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
+            if (!gitExtension) {
+                throw new Error('未找到Git扩展');
+            }
+            
+            const git = gitExtension.getAPI(1);
+            
+            progress.report({ message: '准备克隆...' });
+            
+            // 确保父目录存在
+            const parentDir = path.dirname(targetPath);
+            await fs.mkdir(parentDir, { recursive: true });
+            
+            // 使用 Git 命令行直接克隆
+            // 构建克隆命令
+            const cloneArgs = ['clone', url, targetPath];
+            if (branch) {
+                cloneArgs.push('--branch', branch);
+            }
+            
+            // 执行 git clone 命令
+            const { exec } = require('child_process');
+            const { promisify } = require('util');
+            const execPromise = promisify(exec);
+            
+            try {
+                const gitCommand = `git ${cloneArgs.join(' ')}`;
+                await execPromise(gitCommand, {
+                    cwd: parentDir,
+                    maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+                });
+            } catch (execError) {
+                throw new Error(`Git克隆失败: ${execError.message}`);
+            }
+            
+            progress.report({ message: '克隆完成，正在配置...' });
+            
+            // 等待Git扩展识别新仓库
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const repoUri = vscode.Uri.file(targetPath);
+            
+            // 检查是否有打开的工作区
+            const hasWorkspace = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
+            
+            if (!hasWorkspace) {
+                // 未打开项目，直接在新窗口打开克隆的仓库
+                await vscode.commands.executeCommand('vscode.openFolder', repoUri, false);
+            } else {
+                // 检查签出位置是否在当前已打开的工作区内
+                const isInWorkspace = vscode.workspace.workspaceFolders.some(folder => {
+                    const folderPath = folder.uri.fsPath;
+                    return targetPath.startsWith(folderPath);
+                });
+                
+                if (isInWorkspace) {
+                    // 签出到当前工作区内，不提示，直接完成
+                    vscode.window.showInformationMessage('仓库克隆完成！');
+                } else {
+                    // 签出到工作区外，询问用户是否要打开
+                    const selection = await vscode.window.showInformationMessage(
+                        '仓库克隆完成，是否要在新窗口中打开？',
+                        '在新窗口中打开',
+                        '添加到当前工作区',
+                        '不打开'
+                    );
+                    
+                    if (selection === '在新窗口中打开') {
+                        await vscode.commands.executeCommand('vscode.openFolder', repoUri, true);
+                    } else if (selection === '添加到当前工作区') {
+                        vscode.workspace.updateWorkspaceFolders(
+                            vscode.workspace.workspaceFolders?.length || 0,
+                            0,
+                            { uri: repoUri }
+                        );
+                    }
+                }
+            }
+        } catch (error) {
+            throw new Error(`克隆失败: ${error.message}`);
+        }
+    });
 }
 
 /**
@@ -553,6 +873,11 @@ async function activate(context) {
     workItemManager = new WorkItemManager(context, apiClient, cacheManager);
     recentManager = new RecentManager(context);
     stateManager = new WorkItemStateManager(context);
+    
+    // 初始化代码管理器
+    codeGroupManager = new CodeGroupManager(context, apiClient, cacheManager);
+    codeRepoManager = new CodeRepoManager(context, apiClient, cacheManager);
+    codeBranchManager = new CodeBranchManager(context, apiClient, cacheManager);
 
     // 初始化认证（会自动恢复之前的登录状态）
     await authManager.initialize();
@@ -564,11 +889,21 @@ async function activate(context) {
     workItemsTreeProvider = new WorkItemsTreeProvider(projectManager, workItemManager, context, stateManager);
     recentTreeProvider = new RecentTreeProvider(recentManager, stateManager);
     searchTreeProvider = new SearchTreeProvider(projectManager, workItemManager, recentManager, stateManager);
+    
+    // 初始化代码树视图提供器
+    codeReposTreeProvider = new CodeReposTreeProvider(codeGroupManager, codeRepoManager, authManager, context);
+    codeBranchesTreeProvider = new CodeBranchesTreeProvider(codeBranchManager, authManager);
+    codeRecentTreeProvider = new CodeRecentTreeProvider(recentManager, authManager);
 
     vscode.window.registerTreeDataProvider('yunxiao.projects', projectsTreeProvider);
     vscode.window.registerTreeDataProvider('yunxiao.workitems', workItemsTreeProvider);
     vscode.window.registerTreeDataProvider('yunxiao.recent', recentTreeProvider);
     //vscode.window.registerTreeDataProvider('yunxiao.search', searchTreeProvider);
+    
+    // 注册代码管理相关视图
+    vscode.window.registerTreeDataProvider('yunxiao.code.repos', codeReposTreeProvider);
+    vscode.window.registerTreeDataProvider('yunxiao.code.branches', codeBranchesTreeProvider);
+    vscode.window.registerTreeDataProvider('yunxiao.code.recent', codeRecentTreeProvider);
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     // 初始命令设为登录,在 updateStatusBar 中会根据状态动态调整
@@ -578,6 +913,7 @@ async function activate(context) {
     context.subscriptions.push(statusBarItem);
 
     registerCommands(context);
+    registerCodeCommands(context);
 
     const cleanupInterval = setInterval(() => cacheManager.cleanExpired(), 5 * 60 * 1000);
     context.subscriptions.push(new vscode.Disposable(() => clearInterval(cleanupInterval)));
@@ -2656,5 +2992,496 @@ async function handleBranchSwitch(repository, branchName, repoPath = '') {
 }
 
 function deactivate() {}
+
+/**
+ * 注册代码管理相关命令
+ * 包含收藏、刷新、选择仓库、切换模式、加载更多、创建MR、浏览器打开等功能
+ */
+function registerCodeCommands(context) {
+    // 代码分组收藏命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.toggleGroupFavorite', async (item) => {
+            try {
+                const groupId = item.data.id;
+                await codeGroupManager.toggleFavorite(groupId);
+                codeGroupsTreeProvider.refresh();
+                codeRecentTreeProvider.refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`切换收藏状态失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 代码仓库收藏命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.toggleRepoFavorite', async (item) => {
+            try {
+                const repoId = item.data.id;
+                await codeRepoManager.toggleFavorite(repoId);
+                codeReposTreeProvider.refresh();
+                codeRecentTreeProvider.refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`切换收藏状态失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 代码分支收藏命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.toggleBranchFavorite', async (item) => {
+            try {
+                const repoId = item.data.repositoryId;
+                const branchName = item.data.name;
+                await codeBranchManager.toggleFavorite(repoId, branchName);
+                codeBranchesTreeProvider.refresh();
+                codeRecentTreeProvider.refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`切换收藏状态失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 刷新代码分组视图
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.refreshGroups', () => {
+            codeGroupManager.clearCache();
+            codeGroupsTreeProvider.refresh();
+        })
+    );
+
+    // 刷新代码仓库视图
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.refreshRepos', () => {
+            codeRepoManager.clearCache();
+            codeReposTreeProvider.refresh();
+        })
+    );
+
+    // 刷新代码分支视图
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.refreshBranches', () => {
+            const currentRepo = codeBranchesTreeProvider.currentRepository;
+            if (currentRepo) {
+                codeBranchManager.clearCache(currentRepo.id);
+            } else {
+                codeBranchManager.clearCache();
+            }
+            codeBranchesTreeProvider.refresh();
+        })
+    );
+
+    // 刷新最近使用视图
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.refreshRecent', () => {
+            codeRecentTreeProvider.refresh();
+        })
+    );
+
+    // 选择代码仓库命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.selectRepository', async (repo) => {
+            try {
+                // 设置当前仓库
+                codeBranchesTreeProvider.setCurrentRepository(repo);
+                
+                // 记录到最近使用
+                recentManager.addItem(repo.id, RecentItemType.CodeRepo, repo);
+                codeRecentTreeProvider.refresh();
+                
+                vscode.window.showInformationMessage(`已选择仓库: ${repo.name}`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`选择仓库失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 切换仓库视图模式
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.toggleRepoViewMode', async () => {
+            await codeReposTreeProvider.toggleViewMode();
+        })
+    );
+
+    // 加载更多仓库
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.loadMoreRepos', async (namespaceId) => {
+            try {
+                await codeRepoManager.loadNextPage(namespaceId);
+                codeReposTreeProvider.refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`加载更多仓库失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 创建合并请求命令
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.createMergeRequest', async (item) => {
+            try {
+                const branch = item.data;
+                const repoId = branch.repositoryId;
+                
+                // 获取仓库的所有分支以选择目标分支
+                const response = await codeBranchManager.getBranches(repoId, { page: 1, perPage: 100 });
+                const branches = response.items;
+                
+                // 选择目标分支
+                const targetBranch = await vscode.window.showQuickPick(
+                    branches.map(b => ({
+                        label: b.name,
+                        description: b.defaultBranch ? '(默认分支)' : '',
+                        branch: b
+                    })),
+                    { placeHolder: `选择目标分支（源分支: ${branch.name}）` }
+                );
+                
+                if (!targetBranch) return;
+                
+                // 输入合并请求标题（QuickPick显示输入框和按钮）
+                let title = '';
+                const defaultTitle = `Merge ${branch.name} into ${targetBranch.branch.name}`;
+                
+                const titleQuickPick = vscode.window.createQuickPick();
+                titleQuickPick.placeholder = '在此输入自定义标题，或点击下方按钮（输入为空则使用默认标题）';
+                titleQuickPick.ignoreFocusOut = true;
+                titleQuickPick.items = [
+                    { label: `$(pencil) 使用自定义标题`, description: '使用上方输入框中的内容', alwaysShow: true },
+                    { label: `$(check) 使用默认标题`, description: defaultTitle, alwaysShow: true }
+                ];
+                
+                const titleResult = await new Promise((resolve) => {
+                    titleQuickPick.onDidChangeValue((value) => {
+                        // 更新"使用自定义标题"按钮的描述，显示当前输入内容
+                        if (value.trim()) {
+                            titleQuickPick.items = [
+                                { label: `$(pencil) 使用自定义标题`, description: value.trim(), alwaysShow: true },
+                                { label: `$(check) 使用默认标题`, description: defaultTitle, alwaysShow: true }
+                            ];
+                        } else {
+                            titleQuickPick.items = [
+                                { label: `$(pencil) 使用自定义标题`, description: '使用上方输入框中的内容', alwaysShow: true },
+                                { label: `$(check) 使用默认标题`, description: defaultTitle, alwaysShow: true }
+                            ];
+                        }
+                    });
+                    
+                    titleQuickPick.onDidAccept(() => {
+                        const selected = titleQuickPick.selectedItems[0];
+                        const inputValue = titleQuickPick.value;
+                        
+                        if (selected) {
+                            // 用户点击了按钮
+                            if (selected.label.includes('使用默认标题')) {
+                                resolve({ type: 'default', value: defaultTitle });
+                            } else if (selected.label.includes('使用自定义标题')) {
+                                // 如果输入框有内容，使用输入内容；否则使用默认标题
+                                if (inputValue.trim()) {
+                                    resolve({ type: 'custom', value: inputValue.trim() });
+                                } else {
+                                    resolve({ type: 'default', value: defaultTitle });
+                                }
+                            }
+                        } else {
+                            // 用户直接在输入框按了Enter键（没有选中任何选项）
+                            if (inputValue.trim()) {
+                                // 输入框有内容，使用自定义内容
+                                resolve({ type: 'custom', value: inputValue.trim() });
+                            } else {
+                                // 输入框为空，使用默认标题
+                                resolve({ type: 'default', value: defaultTitle });
+                            }
+                        }
+                        
+                        titleQuickPick.hide();
+                    });
+                    
+                    titleQuickPick.onDidHide(() => {
+                        resolve(null);
+                        titleQuickPick.dispose();
+                    });
+                    
+                    titleQuickPick.show();
+                });
+                
+                if (!titleResult) return;
+                
+                title = titleResult.value;
+                if (!title || title.trim() === '') {
+                    // 理论上不应该到这里，因为上面已经处理了空值情况
+                    title = defaultTitle;
+                }
+                if (title.length > 256) {
+                    vscode.window.showErrorMessage('标题长度不能超过256字符');
+                    return;
+                }
+                
+                // 输入描述（QuickPick显示输入框和按钮）
+                let description = '';
+                
+                const descQuickPick = vscode.window.createQuickPick();
+                descQuickPick.placeholder = '在此输入合并请求描述（可选），或点击下方按钮（输入为空则跳过描述）';
+                descQuickPick.ignoreFocusOut = true;
+                descQuickPick.items = [
+                    { label: `$(pencil) 使用输入的描述`, description: '使用上方输入框中的内容', alwaysShow: true },
+                    { label: `$(close) 跳过描述`, description: '不添加描述，直接创建', alwaysShow: true }
+                ];
+                
+                const descResult = await new Promise((resolve) => {
+                    descQuickPick.onDidChangeValue((value) => {
+                        // 更新"使用输入的描述"按钮的描述，显示当前输入内容
+                        if (value.trim()) {
+                            descQuickPick.items = [
+                                { label: `$(pencil) 使用输入的描述`, description: value.trim().substring(0, 50) + (value.trim().length > 50 ? '...' : ''), alwaysShow: true },
+                                { label: `$(close) 跳过描述`, description: '不添加描述，直接创建', alwaysShow: true }
+                            ];
+                        } else {
+                            descQuickPick.items = [
+                                { label: `$(pencil) 使用输入的描述`, description: '使用上方输入框中的内容', alwaysShow: true },
+                                { label: `$(close) 跳过描述`, description: '不添加描述，直接创建', alwaysShow: true }
+                            ];
+                        }
+                    });
+                    
+                    descQuickPick.onDidAccept(() => {
+                        const selected = descQuickPick.selectedItems[0];
+                        const inputValue = descQuickPick.value;
+                        
+                        if (selected) {
+                            // 用户点击了按钮
+                            if (selected.label.includes('跳过描述')) {
+                                resolve({ type: 'skip', value: '' });
+                            } else if (selected.label.includes('使用输入的描述')) {
+                                // 如果输入框有内容，使用输入内容；否则跳过描述
+                                if (inputValue.trim()) {
+                                    resolve({ type: 'custom', value: inputValue.trim() });
+                                } else {
+                                    resolve({ type: 'skip', value: '' });
+                                }
+                            }
+                        } else {
+                            // 用户直接在输入框按了Enter键（没有选中任何选项）
+                            if (inputValue.trim()) {
+                                // 输入框有内容，使用自定义描述
+                                resolve({ type: 'custom', value: inputValue.trim() });
+                            } else {
+                                // 输入框为空，跳过描述
+                                resolve({ type: 'skip', value: '' });
+                            }
+                        }
+                        
+                        descQuickPick.hide();
+                    });
+                    
+                    descQuickPick.onDidHide(() => {
+                        resolve(null);
+                        descQuickPick.dispose();
+                    });
+                    
+                    descQuickPick.show();
+                });
+                
+                if (!descResult) return;
+                
+                description = descResult.value;
+                if (description.length > 10000) {
+                    vscode.window.showErrorMessage('描述长度不能超过10000字符');
+                    return;
+                }
+                
+                // 创建合并请求
+                const mr = await codeBranchManager.createMergeRequest({
+                    repoId: repoId,
+                    sourceBranch: branch.name,
+                    targetBranch: targetBranch.branch.name,
+                    title: title,
+                    description: description || ''
+                });
+                
+                // 在浏览器中打开合并请求
+                await openMergeRequestInBrowser(mr.title, mr.webUrl, false);
+            } catch (error) {
+                // 检查是否是409冲突错误（已存在相同的合并请求）
+                if (error.status === 409) {
+                    // 从 errorDescription 或 errorMessage 中提取URL
+                    const errorDesc = error.errorDescription || error.message || '';
+                    
+                    // 格式: "无法完成此操作！存在进行中的合并请求：[\"<a href=\"URL\">Title</a>\"]"
+                    const urlMatch = errorDesc.match(/href=\"([^\"]+)\"/);
+                    const titleMatch = errorDesc.match(/>([^<]+)<\/a>/);
+                    
+                    if (urlMatch && urlMatch[1]) {
+                        const existingMrUrl = urlMatch[1];
+                        const existingMrTitle = titleMatch ? titleMatch[1] : '已存在的合并请求';
+                        
+                        // 使用公共函数处理浏览器打开
+                        await openMergeRequestInBrowser(existingMrTitle, existingMrUrl, true);
+                    } else {
+                        // 无法提取URL，显示错误消息
+                        vscode.window.showErrorMessage(`创建合并请求失败: ${error.message}`);
+                    }
+                } else {
+                    // 其他错误
+                    vscode.window.showErrorMessage(`创建合并请求失败: ${error.message}`);
+                }
+            }
+        })
+    );
+
+    // 在浏览器中打开代码分组
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.openGroupInBrowser', async (item) => {
+            try {
+                const group = item.data;
+                if (group.webUrl) {
+                    await vscode.env.openExternal(vscode.Uri.parse(group.webUrl));
+                } else {
+                    vscode.window.showWarningMessage('该分组没有可用的Web链接');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`打开分组失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 在浏览器中打开代码仓库
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.openRepoInBrowser', async (item) => {
+            try {
+                const repo = item.data;
+                if (repo.webUrl) {
+                    await vscode.env.openExternal(vscode.Uri.parse(repo.webUrl));
+                } else {
+                    vscode.window.showWarningMessage('该仓库没有可用的Web链接');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`打开仓库失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 在浏览器中打开代码分支
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.openBranchInBrowser', async (item) => {
+            try {
+                const branch = item.data;
+                if (branch.webUrl) {
+                    await vscode.env.openExternal(vscode.Uri.parse(branch.webUrl));
+                } else {
+                    vscode.window.showWarningMessage('该分支没有可用的Web链接');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`打开分支失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 显示当前仓库信息
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.showCurrentRepository', async () => {
+            try {
+                const repoName = codeBranchesTreeProvider.getCurrentRepositoryName();
+                const repoPath = codeBranchesTreeProvider.getCurrentRepositoryPath();
+                
+                if (!codeBranchesTreeProvider.currentRepository) {
+                    vscode.window.showInformationMessage('当前未选择仓库，请在代码仓库视图中选择一个仓库');
+                    return;
+                }
+                
+                const message = repoPath 
+                    ? `当前仓库: ${repoName}\n路径: ${repoPath}`
+                    : `当前仓库: ${repoName}`;
+                
+                const options = ['在浏览器中打开', '重新选择仓库'];
+                const selection = await vscode.window.showInformationMessage(message, ...options);
+                
+                if (selection === '在浏览器中打开') {
+                    const repo = codeBranchesTreeProvider.currentRepository;
+                    if (repo.webUrl) {
+                        await vscode.env.openExternal(vscode.Uri.parse(repo.webUrl));
+                    } else {
+                        vscode.window.showWarningMessage('该仓库没有可用的Web链接');
+                    }
+                } else if (selection === '重新选择仓库') {
+                    // 切换到代码仓库视图
+                    await vscode.commands.executeCommand('workbench.view.extension.yunxiao-code');
+                }
+            } catch (error) {
+                vscode.window.showErrorMessage(`显示仓库信息失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 签出代码仓库（默认分支）
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.checkoutRepository', async (element) => {
+            try {
+                const repo = element?.data;
+                if (!repo) {
+                    vscode.window.showErrorMessage('未找到仓库信息');
+                    return;
+                }
+
+                // 获取完整的仓库信息（包括克隆URL）
+                const fullRepo = await codeRepoManager.getRepositoryById(repo.id);
+                if (!fullRepo.sshUrlToRepo) {
+                    vscode.window.showErrorMessage('无法获取仓库克隆URL');
+                    return;
+                }
+
+                // 选择签出位置
+                const targetPath = await selectCheckoutLocation(repo.name);
+                if (!targetPath) {
+                    return; // 用户取消
+                }
+
+                // 使用Git API进行克隆（使用SSH URL）
+                await cloneRepository(fullRepo.sshUrlToRepo, targetPath, fullRepo.defaultBranch);
+                
+                vscode.window.showInformationMessage(`仓库 ${repo.name} 签出成功！`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`签出仓库失败: ${error.message}`);
+            }
+        })
+    );
+
+    // 签出指定分支
+    context.subscriptions.push(
+        vscode.commands.registerCommand('yunxiao.code.checkoutBranch', async (element) => {
+            try {
+                const branch = element?.data;
+                if (!branch) {
+                    vscode.window.showErrorMessage('未找到分支信息');
+                    return;
+                }
+
+                const repo = codeBranchesTreeProvider.currentRepository;
+                if (!repo) {
+                    vscode.window.showErrorMessage('未选择仓库');
+                    return;
+                }
+
+                // 获取完整的仓库信息（包括克隆URL）
+                const fullRepo = await codeRepoManager.getRepositoryById(repo.id);
+                if (!fullRepo.sshUrlToRepo) {
+                    vscode.window.showErrorMessage('无法获取仓库克隆URL');
+                    return;
+                }
+
+                // 选择签出位置
+                const targetPath = await selectCheckoutLocation(repo.name);
+                if (!targetPath) {
+                    return; // 用户取消
+                }
+
+                // 使用Git API进行克隆，并签出指定分支（使用SSH URL）
+                await cloneRepository(fullRepo.sshUrlToRepo, targetPath, branch.name);
+                
+                vscode.window.showInformationMessage(`仓库 ${repo.name} (分支: ${branch.name}) 签出成功！`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`签出分支失败: ${error.message}`);
+            }
+        })
+    );
+}
 
 module.exports = { activate, deactivate };
