@@ -15,6 +15,10 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager, comments = [
     const isLoading = !details;
     const hasError = details?.error;
     
+    // 检查评论加载状态
+    const hasCommentsError = comments?.error === true;
+    const commentsList = hasCommentsError ? [] : (Array.isArray(comments) ? comments : []);
+    
     // 使用details或workitem
     const data = details || workitem;
     
@@ -434,6 +438,13 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager, comments = [
             color: var(--vscode-descriptionForeground);
             font-style: italic;
         }
+        .no-comments.error {
+            color: var(--vscode-inputValidation-warningForeground);
+            background-color: var(--vscode-inputValidation-warningBackground);
+            border: 1px solid var(--vscode-inputValidation-warningBorder);
+            border-radius: 4px;
+            font-style: normal;
+        }
     </style>
 </head>
 <body>
@@ -586,8 +597,10 @@ function getWorkItemPropertiesHtml(workitem, details, stateManager, comments = [
                 
         ${!isLoading && !hasError ? `
             <div class="section comments-section">
-                <div class="section-title">评论 (${comments.length})</div>
-                ${comments.length > 0 ? comments.map(comment => `
+                <div class="section-title">评论 (${commentsList.length})</div>
+                ${hasCommentsError ? `
+                    <div class="no-comments error">⚠️ 无法加载评论：${comments.message || '请检查网络连接或访问权限'}</div>
+                ` : commentsList.length > 0 ? commentsList.map(comment => `
                     <div class="comment-item${comment.top ? ' top' : ''}">
                         <div class="comment-header">
                             <div>

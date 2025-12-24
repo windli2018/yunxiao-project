@@ -1668,10 +1668,23 @@ function registerCommands(context) {
                 
                 // 异步加载完整详情和评论
                 try {
-                    const [details, comments] = await Promise.all([
-                        workItemManager.getWorkItem(workitem.workitemId),
-                        workItemManager.getWorkItemComments(workitem.workitemId)
-                    ]);
+                    // 分别获取工作项详情和评论，评论加载失败不影响详情显示
+                    const detailsPromise = workItemManager.getWorkItem(workitem.workitemId);
+                    const commentsPromise = workItemManager.getWorkItemComments(workitem.workitemId);
+                    
+                    // 先获取工作项详情
+                    const details = await detailsPromise;
+                    
+                    // 然后获取评论（即使失败也不影响详情显示）
+                    let comments = [];
+                    try {
+                        comments = await commentsPromise;
+                    } catch (commentsError) {
+                        console.warn('获取工作项评论失败，继续显示工作项详情:', commentsError.message);
+                        // 使用特殊对象标记评论加载失败，而不是空数组
+                        comments = { error: true, message: commentsError.message };
+                    }
+                    
                     panel.webview.html = getWorkItemPropertiesHtml(workitem, details, stateManager, comments);
                 } catch (error) {
                     panel.webview.html = getWorkItemPropertiesHtml(workitem, { error: error.message }, stateManager, []);

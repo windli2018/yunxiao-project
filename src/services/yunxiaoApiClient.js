@@ -20,7 +20,9 @@ const REQUIRED_PERMISSIONS = {
         appName: '项目协作',
         resources: [
             { name: '项目', permission: '只读' },
-            { name: '工作项', permission: '只读' }
+            { name: '工作项', permission: '只读' },
+            { name: '工作项类型', permission: '只读' },
+            { name: '工作项评论', permission: '只读' }
         ]
     },
     // 代码管理相关权限
@@ -253,7 +255,7 @@ class YunxiaoApiClient {
                 hasMore: (data.total || 0) > page.page * page.pageSize
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取项目列表失败: ${error.message}`);
         }
     }
@@ -279,7 +281,7 @@ class YunxiaoApiClient {
                 isFavorite: false
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取项目详情失败: ${error.message}`);
         }
     }
@@ -336,7 +338,7 @@ class YunxiaoApiClient {
                 hasMore: page.page < totalPages
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取工作项列表失败: ${error.message}`);
         }
     }
@@ -384,7 +386,7 @@ class YunxiaoApiClient {
                 formatType: item.formatType
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取工作项详情失败: ${error.message}`);
         }
     }
@@ -538,7 +540,7 @@ class YunxiaoApiClient {
                 hasMore: actualHasMore
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`搜索工作项失败: ${error.message}`);
         }
     }
@@ -559,7 +561,7 @@ class YunxiaoApiClient {
                 description: item.description
             }));
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取工作项类型失败: ${error.message}`);
         }
     }
@@ -661,7 +663,7 @@ class YunxiaoApiClient {
                 } : undefined
             }));
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取工作项评论失败: ${error.message}`);
         }
     }
@@ -726,7 +728,7 @@ class YunxiaoApiClient {
                 hasMore: page < totalPages
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取代码分组列表失败: ${error.message}`);
         }
     }
@@ -758,7 +760,7 @@ class YunxiaoApiClient {
                 isFavorite: false  // 本地状态
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取代码分组详情失败: ${error.message}`);
         }
     }
@@ -846,7 +848,7 @@ class YunxiaoApiClient {
                 hasMore: page < totalPages
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取代码仓库列表失败: ${error.message}`);
         }
     }
@@ -904,7 +906,7 @@ class YunxiaoApiClient {
                 hasMore: page.page < totalPages
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取分组下的代码仓库列表失败: ${error.message}`);
         }
     }
@@ -947,7 +949,7 @@ class YunxiaoApiClient {
                 isFavorite: false  // 本地状态
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取代码仓库详情失败: ${error.message}`);
         }
     }
@@ -1016,7 +1018,7 @@ class YunxiaoApiClient {
                 hasMore: page < totalPages
             };
         } catch (error) {
-            await this.handle403Error(error);
+            this.handle403Error(error);
             throw new Error(`获取代码分支列表失败: ${error.message}`);
         }
     }
@@ -1109,7 +1111,7 @@ class YunxiaoApiClient {
         } catch (error) {
             // 只处理403权限错误
             if (error.status === 403 || error.code === 'PERMISSION_DENIED') {
-                await this.handle403Error(error);
+                this.handle403Error(error);
             }
             
             // 对于400错误，提供更详细的错误信息
