@@ -490,6 +490,34 @@ class WorkItemManager {
         this.workItemTypes.clear();
         this.lazyLoadState.clear();
     }
+
+    /**
+     * 获取工作项评论
+     * @param {string} workitemId - 工作项 ID
+     * @param {boolean} forceRefresh - 强制刷新
+     */
+    async getWorkItemComments(workitemId, forceRefresh = false) {
+        const cacheKey = `workitem-comments:${workitemId}`;
+        
+        if (!forceRefresh) {
+            const cached = this.cacheManager.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+        }
+
+        try {
+            const comments = await this.apiClient.getWorkItemComments(workitemId);
+            
+            // 缓存评论列表（5分钟）
+            this.cacheManager.set(cacheKey, comments, 5 * 60 * 1000);
+            
+            return comments;
+        } catch (error) {
+            console.warn(`获取工作项评论失败: ${error.message}`);
+            return []; // 失败时返回空数组
+        }
+    }
 }
 
 module.exports = { WorkItemManager };

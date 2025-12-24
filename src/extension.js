@@ -1328,14 +1328,17 @@ function registerCommands(context) {
                 );
                 
                 // 立即显示基础信息（从缓存数据）
-                panel.webview.html = getWorkItemPropertiesHtml(workitem, null, stateManager);
+                panel.webview.html = getWorkItemPropertiesHtml(workitem, null, stateManager, []);
                 
-                // 异步加载完整详情
+                // 异步加载完整详情和评论
                 try {
-                    const details = await workItemManager.getWorkItem(workitem.workitemId);
-                    panel.webview.html = getWorkItemPropertiesHtml(workitem, details, stateManager);
+                    const [details, comments] = await Promise.all([
+                        workItemManager.getWorkItem(workitem.workitemId),
+                        workItemManager.getWorkItemComments(workitem.workitemId)
+                    ]);
+                    panel.webview.html = getWorkItemPropertiesHtml(workitem, details, stateManager, comments);
                 } catch (error) {
-                    panel.webview.html = getWorkItemPropertiesHtml(workitem, { error: error.message }, stateManager);
+                    panel.webview.html = getWorkItemPropertiesHtml(workitem, { error: error.message }, stateManager, []);
                 }
                 
                 // 处理WebView消息

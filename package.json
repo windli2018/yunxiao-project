@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速发送工作项到AI，关联工作项到Git提交消息",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",

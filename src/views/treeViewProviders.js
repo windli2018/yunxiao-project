@@ -312,9 +312,9 @@ ${workitem.subject}
             treeItem.iconPath = this.getWorkItemIcon(workitem);
             
             treeItem.command = {
-                command: 'yunxiao.pasteToCommit',
-                title: '粘贴到提交消息',
-                arguments: [workitem]
+                command: 'yunxiao.viewWorkItemProperties',
+                title: '查看工作项属性',
+                arguments: [{ data: workitem }]
             };
         } else if (element.type === 'load-more') {
             // 加载更多按钮
@@ -558,9 +558,9 @@ class RecentTreeProvider {
             treeItem.contextValue = 'workitem';
             
             treeItem.command = {
-                command: 'yunxiao.pasteToCommit',
-                title: '粘贴到提交消息',
-                arguments: [workitemData]
+                command: 'yunxiao.viewWorkItemProperties',
+                title: '查看工作项属性',
+                arguments: [{ data: workitemData }]
             };
         } else if (element.type === TreeItemType.RecentSearchKeyword) {
             const recentItem = element.data;
@@ -736,9 +736,9 @@ ${workitem.subject}
             treeItem.iconPath = this.getWorkItemIcon(workitem);
             
             treeItem.command = {
-                command: 'yunxiao.pasteToCommit',
-                title: '粘贴到提交消息',
-                arguments: [workitem]
+                command: 'yunxiao.viewWorkItemProperties',
+                title: '查看工作项属性',
+                arguments: [{ data: workitem }]
             };
         }
 

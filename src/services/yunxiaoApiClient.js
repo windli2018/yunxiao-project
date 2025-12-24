@@ -483,6 +483,38 @@ class YunxiaoApiClient {
             throw new Error(`获取用户信息失败: ${error.response?.data?.errorMessage || error.message}`);
         }
     }
+
+    /**
+     * 获取工作项评论列表
+     * 
+     * @param {string} workitemId - 工作项唯一标识
+     * @returns {Promise<Array>} 评论列表
+     */
+    async getWorkItemComments(workitemId) {
+        try {
+            const response = await this.axiosInstance.get(
+                `/oapi/v1/projex/organizations/${this.organizationId}/workitems/${workitemId}/comments`
+            );
+            
+            const comments = response.data || [];
+            return comments.map(comment => ({
+                id: comment.id,
+                content: comment.content,
+                contentFormat: comment.contentFormat, // RICHTEXT 或 MARKDOWN
+                parentId: comment.parentId,
+                top: comment.top,
+                topTime: comment.topTime,
+                gmtCreate: comment.gmtCreate ? new Date(comment.gmtCreate).getTime() : undefined,
+                gmtModified: comment.gmtModified ? new Date(comment.gmtModified).getTime() : undefined,
+                user: comment.user ? {
+                    id: comment.user.id,
+                    name: comment.user.name
+                } : undefined
+            }));
+        } catch (error) {
+            throw new Error(`获取工作项评论失败: ${error.message}`);
+        }
+    }
 }
 
 module.exports = { YunxiaoApiClient };
