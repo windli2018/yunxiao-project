@@ -91,5 +91,5 @@
   "yunxiao.branchNameTemplate.description": "新建分支时的命名模板，支持变量：{category}（工作项类型）、{id}（工作项标识符）、{title}（工作项标题）、{date}（当前日期）",
   "yunxiao.autoOpenMergeRequestInBrowser.description": "创建合并请求后是否自动在浏览器中打开",
   "yunxiao.autoOpenMergeRequestInBrowser.ask": "总是询问（默认）",
-  "yunxiao.autoOpenMergeRequestInBrowser.always": "自动打开"
+  "yunxiao.autoOpenMergeRequestInBrowser.always": "自动打开"}
 }
