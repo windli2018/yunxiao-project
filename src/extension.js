@@ -103,6 +103,81 @@ async function detectIDEEnvironment() {
     return { isQoder, isTraeIDE, appName };
 }
 
+/**
+ * 获取 Git 仓库，支持多仓库场景下的智能选择
+ * @param {Object} git - Git API 实例
+ * @param {Object} sourceControl - SCM sourceControl 对象（可选）
+ * @returns {Object|null} Git 仓库实例，如果找不到返回 null
+ */
+function getGitRepository(git, sourceControl = null) {
+    if (!git || !git.repositories || git.repositories.length === 0) {
+        return null;
+    }
+    
+    let repository;
+    
+    // 优先级 1: 使用传入的 sourceControl 参数（从 SCM 输入框上下文传递）
+    if (sourceControl && sourceControl.rootUri) {
+        // 根据 rootUri 找到对应的仓库
+        repository = git.repositories.find(repo => 
+            repo.rootUri.toString() === sourceControl.rootUri.toString()
+        );
+        if (repository) {
+            console.log('使用 SCM 上下文指定的仓库:', sourceControl.rootUri.toString());
+            return repository;
+        }
+    }
+    
+    // 优先级 2: 如果有多个仓库，尝试找到当前活动编辑器所在的仓库
+    if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
+        const activeUri = vscode.window.activeTextEditor.document.uri;
+        const repo = git.getRepository(activeUri);
+        if (repo) {
+            console.log('使用当前活动编辑器所在的仓库');
+            return repo;
+        }
+    }
+    
+    // 优先级 3: 使用第一个仓库
+    return git.repositories[0];
+}
+
+/**
+ * 获取仓库的相对路径（相对于工作区根目录）
+ * @param {Object} repository - Git 仓库对象
+ * @returns {string} 相对路径，如果是根目录则返回 '.'
+ */
+function getRepositoryRelativePath(repository) {
+    if (!repository || !repository.rootUri) {
+        return '';
+    }
+    
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        // 没有工作区，返回绝对路径的最后一部分
+        const pathParts = repository.rootUri.fsPath.split(/[\\/]/);
+        return pathParts[pathParts.length - 1] || repository.rootUri.fsPath;
+    }
+    
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    const repoPath = repository.rootUri.fsPath;
+    
+    // 如果仓库就是工作区根目录
+    if (repoPath === workspaceRoot) {
+        return '.';
+    }
+    
+    // 如果仓库在工作区内，返回相对路径
+    if (repoPath.startsWith(workspaceRoot)) {
+        const relativePath = repoPath.substring(workspaceRoot.length);
+        return relativePath.replace(/^[\\/]+/, '') || '.';
+    }
+    
+    // 仓库在工作区外，返回最后一部分路径
+    const pathParts = repoPath.split(/[\\/]/);
+    return pathParts[pathParts.length - 1] || repoPath;
+}
+
 async function checkIDEEnvironment() {
     try {
         const { isQoder, isTraeIDE, appName } = await detectIDEEnvironment();
@@ -773,15 +848,15 @@ function registerCommands(context) {
                     return;
                 }
                 
-                // 获取仓库
-                let repository = git.repositories[0];
-                if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
-                    const activeUri = vscode.window.activeTextEditor.document.uri;
-                    const repo = git.getRepository(activeUri);
-                    if (repo) {
-                        repository = repo;
-                    }
+                // 获取仓库 - 使用统一的公共函数
+                const repository = getGitRepository(git, sourceControl);
+                if (!repository) {
+                    vscode.window.showWarningMessage('无法确定目标仓库', '确定');
+                    return;
                 }
+                
+                // 获取仓库相对路径
+                const repoPath = getRepositoryRelativePath(repository);
                 
                 // 生成分支名称
                 const branchName = await generateBranchName(item);
@@ -794,7 +869,7 @@ function registerCommands(context) {
                 
                 if (branchExists && !isCurrentBranch) {
                     // 分支已存在但非当前分支，处理切换逻辑
-                    const switched = await handleBranchSwitch(repository, branchName);
+                    const switched = await handleBranchSwitch(repository, branchName, repoPath);
                     if (!switched) {
                         return;  // 用户取消了切换
                     }
@@ -805,7 +880,7 @@ function registerCommands(context) {
                     
                     if (hasChanges) {
                         const answer = await vscode.window.showWarningMessage(
-                            `当前分支有未提交的修改，创建新分支会基于当前版本（包含这些修改）。`,
+                            `当前分支有未提交的修改，创建新分支会基于当前版本（包含这些修改）。\n\n仓库: ${repoPath}`,
                             '继续创建',
                             '取消'
                         );
@@ -817,7 +892,7 @@ function registerCommands(context) {
                     
                     // 创建并切换到新分支
                     await repository.createBranch(branchName, true);
-                    vscode.window.showInformationMessage(`已创建并切换到分支: ${branchName}`);
+                    vscode.window.showInformationMessage(`已创建并切换到分支: ${branchName}\n仓库: ${repoPath}`);
                 }
                 
                 // 粘贴到提交消息
@@ -2067,31 +2142,11 @@ async function pasteToCommit(workitem, sourceControl) {
         if (gitExtension) {
             const git = gitExtension.exports.getAPI(1);
             if (git && git.repositories && git.repositories.length > 0) {
-                let repository;
+                // 使用统一的公共函数获取仓库
+                const repository = getGitRepository(git, sourceControl);
                 
-                // 优先使用传入的 sourceControl 参数（从 SCM 输入框上下文传递）
-                if (sourceControl && sourceControl.rootUri) {
-                    // 根据 rootUri 找到对应的仓库
-                    repository = git.repositories.find(repo => 
-                        repo.rootUri.toString() === sourceControl.rootUri.toString()
-                    );
-                    console.log('使用 SCM 上下文指定的仓库:', sourceControl.rootUri.toString());
-                }
-                
-                // 如果没有从 sourceControl 找到，则使用智能回退逻辑
                 if (!repository) {
-                    // 获取当前工作区的 Git 仓库
-                    repository = git.repositories[0];
-                    
-                    // 如果有多个仓库，尝试找到当前活动编辑器所在的仓库
-                    if (git.repositories.length > 1 && vscode.window.activeTextEditor) {
-                        const activeUri = vscode.window.activeTextEditor.document.uri;
-                        const repo = git.getRepository(activeUri);
-                        if (repo) {
-                            repository = repo;
-                            console.log('使用当前活动编辑器所在的仓库');
-                        }
-                    }
+                    throw new Error('无法确定目标仓库');
                 }
                 
                 // 检查当前提交消息是否已包含相同内容
@@ -2505,19 +2560,22 @@ async function generateBranchName(workitem) {
  * 处理分支切换逻辑 - 安全策略：不自动切换，只提示用户
  * @param {Object} repository - Git仓库对象
  * @param {string} branchName - 目标分支名称
+ * @param {string} repoPath - 仓库相对路径（可选）
  * @returns {Promise<boolean>} 是否成功切换
  */
-async function handleBranchSwitch(repository, branchName) {
+async function handleBranchSwitch(repository, branchName, repoPath = '') {
     // 检查工作区状态
     const hasUnstagedChanges = repository.state.workingTreeChanges.length > 0;
     const hasStagedChanges = repository.state.indexChanges.length > 0;
     const hasChanges = hasUnstagedChanges || hasStagedChanges;
     
+    const repoInfo = repoPath ? `\n\n仓库: ${repoPath}` : '';
+    
     if (hasChanges) {
         // 有未保存修改，不允许切换
         vscode.window.showWarningMessage(
             `无法切换到分支 '${branchName}'：当前分支有未提交的修改。\n\n` +
-            `请先处理当前修改（提交或暂存），然后手动切换到该分支。`,
+            `请先处理当前修改（提交或暂存），然后手动切换到该分支。${repoInfo}`,
             { modal: true },
             '打开源代码管理'
         ).then(selection => {
@@ -2530,7 +2588,7 @@ async function handleBranchSwitch(repository, branchName) {
         // 无修改，也不自动切换，只提示用户
         vscode.window.showInformationMessage(
             `分支 '${branchName}' 已存在。\n\n` +
-            `如需切换，请手动在源代码管理中切换分支。`,
+            `如需切换，请手动在源代码管理中切换分支。${repoInfo}`,
             '打开源代码管理'
         ).then(selection => {
             if (selection === '打开源代码管理') {
