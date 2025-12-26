@@ -90,9 +90,9 @@ const AI_CONFIGS = {
 };
 
 /**
- * 检测 IDE 环境（Qoder 或 Trae IDE）
+ * 检测 IDE 环境（Qoder 或 Trae IDE）以及各AI助手扩展的安装状态
  * 通过 VSCode 运行时上下文的 appName 和特有命令来判断
- * @returns {Promise<{isQoder: boolean, isTraeIDE: boolean, appName: string}>}
+ * @returns {Promise<{isQoder: boolean, isTraeIDE: boolean, hasTongyiExtension: boolean, hasCopilotExtension: boolean, hasTraeExtension: boolean, appName: string}>}
  */
 async function detectIDEEnvironment() {
     const appName = vscode.env.appName;
@@ -110,7 +110,27 @@ async function detectIDEEnvironment() {
     // 判断是否为 Trae IDE
     const isTraeIDE = appName === 'Trae';
     
-    return { isQoder, isTraeIDE, appName };
+    // 检测通义灵码扩展是否安装
+    const tongyiExtension = vscode.extensions.getExtension('Alibaba-Cloud.tongyi-lingma');
+    const hasTongyiExtension = !!tongyiExtension;
+    
+    // 检测 GitHub Copilot 扩展是否安装
+    const copilotExtension = vscode.extensions.getExtension('GitHub.copilot-chat');
+    const hasCopilotExtension = !!copilotExtension;
+    
+    // 检测 TRAE AI 扩展是否安装
+    // 使用AI_CONFIGS中定义的extensionId
+    const traeExtension = vscode.extensions.getExtension(AI_CONFIGS.trae.extensionId);
+    const hasTraeExtension = !!traeExtension;
+    
+    return { 
+        isQoder, 
+        isTraeIDE, 
+        hasTongyiExtension,
+        hasCopilotExtension,
+        hasTraeExtension,
+        appName 
+    };
 }
 
 /**
@@ -317,6 +337,100 @@ async function checkIDEEnvironment() {
         await vscode.commands.executeCommand('setContext', 'yunxiao.qoderInstalled', false);
         await vscode.commands.executeCommand('setContext', 'yunxiao.traeideInstalled', false);
         console.error('检查 IDE 环境失败:', error);
+    }
+}
+
+/**
+ * 更新AI菜单显示状态
+ * 根据用户配置和环境检测结果，设置各AI助手菜单的显示上下文变量
+ */
+async function updateMenuVisibility() {
+    try {
+        // 1. 获取环境检测结果
+        const { isQoder, isTraeIDE, hasTongyiExtension, hasCopilotExtension, hasTraeExtension } = await detectIDEEnvironment();
+        
+        // 2. 读取用户配置
+        const config = vscode.workspace.getConfiguration('yunxiao');
+        const tongyiVisibility = config.get('menuVisibility.tongyi', 'always');
+        const copilotVisibility = config.get('menuVisibility.copilot', 'always');
+        const traeVisibility = config.get('menuVisibility.trae', 'always');
+        const qoderVisibility = config.get('menuVisibility.qoder', 'auto');
+        const traeideVisibility = config.get('menuVisibility.traeide', 'auto');
+        
+        // 3. 计算每个AI助手菜单的显示状态
+        
+        // 通义灵码: 根据配置和扩展安装情况决定
+        let showTongyi = false;
+        if (tongyiVisibility === 'always') {
+            showTongyi = true;
+        } else if (tongyiVisibility === 'never') {
+            showTongyi = false;
+        } else if (tongyiVisibility === 'auto') {
+            showTongyi = hasTongyiExtension;
+        }
+        
+        // GitHub Copilot: 根据配置和扩展安装情况决定
+        let showCopilot = false;
+        if (copilotVisibility === 'always') {
+            showCopilot = true;
+        } else if (copilotVisibility === 'never') {
+            showCopilot = false;
+        } else if (copilotVisibility === 'auto') {
+            showCopilot = hasCopilotExtension;
+        }
+        
+        // TRAE AI: 根据配置和扩展安装情况决定
+        let showTrae = false;
+        if (traeVisibility === 'always') {
+            showTrae = true;
+        } else if (traeVisibility === 'never') {
+            showTrae = false;
+        } else if (traeVisibility === 'auto') {
+            showTrae = hasTraeExtension;
+        }
+        
+        // Qoder: 根据配置和IDE环境决定
+        let showQoder = false;
+        if (qoderVisibility === 'always') {
+            showQoder = true;
+        } else if (qoderVisibility === 'never') {
+            showQoder = false;
+        } else if (qoderVisibility === 'auto') {
+            showQoder = isQoder;
+        }
+        
+        // Trae IDE: 根据配置和IDE环境决定
+        let showTraeIDE = false;
+        if (traeideVisibility === 'always') {
+            showTraeIDE = true;
+        } else if (traeideVisibility === 'never') {
+            showTraeIDE = false;
+        } else if (traeideVisibility === 'auto') {
+            showTraeIDE = isTraeIDE;
+        }
+        
+        // 4. 设置上下文变量
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.tongyiVisible', showTongyi);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.copilotVisible', showCopilot);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.traeVisible', showTrae);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.qoderVisible', showQoder);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.traeideVisible', showTraeIDE);
+        
+        console.log('菜单显示状态已更新:', {
+            tongyi: showTongyi,
+            copilot: showCopilot,
+            trae: showTrae,
+            qoder: showQoder,
+            traeide: showTraeIDE
+        });
+    } catch (error) {
+        console.error('更新菜单显示状态失败:', error);
+        // 出错时默认设置为always的选项为true，auto的选项为false
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.tongyiVisible', true);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.copilotVisible', true);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.traeVisible', true);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.qoderVisible', false);
+        await vscode.commands.executeCommand('setContext', 'yunxiao.menu.traeideVisible', false);
     }
 }
 
@@ -884,6 +998,9 @@ async function activate(context) {
 
     // 检查 Qoder 应用是否安装
     await checkIDEEnvironment();
+    
+    // 更新AI菜单显示状态
+    await updateMenuVisibility();
 
     projectsTreeProvider = new ProjectsTreeProvider(projectManager, authManager);
     workItemsTreeProvider = new WorkItemsTreeProvider(projectManager, workItemManager, context, stateManager);
@@ -917,6 +1034,17 @@ async function activate(context) {
 
     const cleanupInterval = setInterval(() => cacheManager.cleanExpired(), 5 * 60 * 1000);
     context.subscriptions.push(new vscode.Disposable(() => clearInterval(cleanupInterval)));
+    
+    // 注册配置变更监听器
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(async (event) => {
+            // 检测是否为menuVisibility相关配置的变更
+            if (event.affectsConfiguration('yunxiao.menuVisibility')) {
+                console.log('检测到菜单显示配置变更，重新计算显示状态');
+                await updateMenuVisibility();
+            }
+        })
+    );
 
     // 显示启动消息（使用状态栏消息，3秒后自动消失）
     if (authManager.isAuthenticated()) {
@@ -1523,25 +1651,48 @@ function registerCommands(context) {
                 // 读取配置
                 const config = vscode.workspace.getConfiguration('yunxiao');
                 let defaultAI = config.get('customAI.defaultAI', '');
-                                
-                // 如果是空字符串，说明是首次使用或未配置
+                                        
+                // 如果是空字符串，说明是首次使用或未配置，需要智能选择
                 if (!defaultAI || defaultAI.trim() === '') {
-                    // 检测 IDE 环境，在 Qoder/Trae IDE 环境下默认使用对应 AI，无需显示引导
-                    const { isQoder, isTraeIDE } = await detectIDEEnvironment();
+                    // 获取环境检测结果
+                    const { isQoder, isTraeIDE, hasTongyiExtension, hasCopilotExtension, hasTraeExtension } = await detectIDEEnvironment();
+                            
+                    // 优先级 1: 尝试支持的IDE
                     if (isQoder) {
-                        console.log('在 Qoder 环境下，默认使用 Qoder AI');
+                        console.log('在 Qoder 环境下，自动使用 Qoder AI');
                         await sendToAIChat(workitem, AI_CONFIGS.qoder);
                         return;
                     }
                     if (isTraeIDE) {
-                        console.log('在 Trae IDE 环境下，默认使用 Trae IDE AI');
+                        console.log('在 Trae IDE 环境下，自动使用 Trae IDE AI');
                         await sendToAIChat(workitem, AI_CONFIGS.traeide);
                         return;
                     }
                             
-                    // 其他环境显示引导
+                    // 优先级 2: 尝试已安装的AI插件（按推荐优先级顺序）
+                    // 优先顺序: Copilot > TRAE AI > 通义灵码
+                    if (hasCopilotExtension) {
+                        console.log('检测到 GitHub Copilot 已安装，自动使用（不保存配置）');
+                        // 直接使用,不保存为默认AI,保持动态检测
+                        await sendToAIChat(workitem, AI_CONFIGS.copilot);
+                        return;
+                    }
+                    if (hasTraeExtension) {
+                        console.log('检测到 TRAE AI 已安装，自动使用（不保存配置）');
+                        // 直接使用,不保存为默认AI,保持动态检测
+                        await sendToAIChat(workitem, AI_CONFIGS.trae);
+                        return;
+                    }
+                    if (hasTongyiExtension) {
+                        console.log('检测到通义灵码已安装，自动使用（不保存配置）');
+                        // 直接使用,不保存为默认AI,保持动态检测
+                        await sendToAIChat(workitem, AI_CONFIGS.tongyi);
+                        return;
+                    }
+                            
+                    // 优先级 3: 没有找到任何可用的AI，显示引导
                     const choice = await vscode.window.showInformationMessage(
-                        '🚀 欢迎使用"发送到 AI 助手"功能！\n\n请先选择您喜欢的 AI 助手：',
+                        '🚀 欢迎使用"发送到 AI 助手"功能！\n\n未检测到已安装的 AI 助手，请选择您喜欢的 AI：',
                         {
                             modal: true,
                             detail: '您可以选择：\n\n🤖 Qoder - 内置 AI，自动附加文件（推荐）\n💙 GitHub Copilot - 自动附加文件，直接提问\n💡 通义灵码 - 复制粘贴模式\n🚀 TRAE AI - 自动附加文件，直接提问\n⚙️ 自定义 AI - 配置其他 AI 工具\n\n也可以点击"打开设置"进行更多自定义配置。'
@@ -1553,21 +1704,21 @@ function registerCommands(context) {
                         '自定义 AI',
                         '打开设置'
                     );
-                                    
+                                            
                     if (!choice) {
                         // 用户取消，不执行任何操作
                         return;
                     }
-                                    
+                                            
                     if (choice === '打开设置') {
                         // 打开设置页面，聚焦到 defaultAI 配置项
                         await vscode.commands.executeCommand('workbench.action.openSettings', 'yunxiao.customAI');
                         vscode.window.showInformationMessage(
-                            'ℹ️ 请在设置中选择 "Default AI" 并配置相关参数，然后重新使用“发送到 AI 助手”功能。'
+                            'ℹ️ 请在设置中选择 "Default AI" 并配置相关参数，然后重新使用"发送到 AI 助手"功能。'
                         );
                         return;
                     }
-                                    
+                                            
                     // 根据用户选择设置默认 AI
                     if (choice === 'Qoder') {
                         defaultAI = 'qoder';
@@ -1588,22 +1739,22 @@ function registerCommands(context) {
                     } else if (choice === '自定义 AI') {
                         defaultAI = 'custom';
                         await config.update('customAI.defaultAI', 'custom', vscode.ConfigurationTarget.Global);
-                                        
+                                                
                         // 提示用户配置自定义 AI 参数
                         const openSettings = await vscode.window.showInformationMessage(
                             '✅ 已设置默认 AI 为自定义\n\n请配置以下参数：\n- 扩展 ID\n- 扩展名称\n- 打开命令\n- 附加命令（可选）\n- 安装 URL',
                             '打开设置'
                         );
-                                        
+                                                
                         if (openSettings === '打开设置') {
                             await vscode.commands.executeCommand('workbench.action.openSettings', 'yunxiao.customAI');
                             return;
                         }
                     }
                 }
-                                
+                                        
                 let aiConfig;
-                                
+                                        
                 // 根据配置选择对应的 AI
                 if (defaultAI === 'qoder') {
                     aiConfig = AI_CONFIGS.qoder;
@@ -1621,7 +1772,7 @@ function registerCommands(context) {
                     const attachCommand = config.get('customAI.attachCommand', 'github.copilot.chat.attachSelection');
                     const installUrl = config.get('customAI.installUrl', 'vscode:extension/GitHub.copilot-chat');
                     const template = config.get('customAI.template', '{type} #{id} {title}\n{description}');
-                                    
+                                            
                     aiConfig = {
                         extensionId,
                         extensionName,
@@ -1636,7 +1787,7 @@ function registerCommands(context) {
                     vscode.window.showErrorMessage('无效的 AI 配置，请检查设置');
                     return;
                 }
-                                
+                                        
                 await sendToAIChat(workitem, aiConfig);
             } catch (error) {
                 console.error('发送到 AI 助手失败:', error);

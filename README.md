@@ -264,6 +264,49 @@
 }
 ```
 
+#### 右键菜单显示配置
+
+您可以控制各AI助手右键菜单的显示时机，根据个人使用习惯定制菜单。
+
+**配置方式**：
+1. 打开 VSCode 设置（`Ctrl+,`）
+2. 搜索 `yunxiao.menuVisibility`
+
+**配置选项**：
+
+| 配置项 | 说明 | 可选值 | 默认值 |
+|--------|------|--------|--------|
+| yunxiao.menuVisibility.tongyi | 控制"发送到通义灵码"菜单显示 | always / never / auto | always |
+| yunxiao.menuVisibility.copilot | 控制"发送到 GitHub Copilot"菜单显示 | always / never / auto | always |
+| yunxiao.menuVisibility.trae | 控制"发送到 TRAE AI"菜单显示 | always / never / auto | always |
+| yunxiao.menuVisibility.qoder | 控制"发送到 Qoder"菜单显示 | always / never / auto | auto |
+| yunxiao.menuVisibility.traeide | 控制"发送到 Trae IDE"菜单显示 | always / never / auto | auto |
+
+**选项值说明**：
+- `always`: 总是显示该菜单项
+- `never`: 总是不显示该菜单项
+- `auto`: 自动检测相关扩展和命令，存在时才显示
+
+**配置示例**：
+
+```json
+{
+  // 隐藏通义灵码菜单
+  "yunxiao.menuVisibility.tongyi": "never",
+  
+  // 仅在安装 Copilot 时显示菜单
+  "yunxiao.menuVisibility.copilot": "auto",
+  
+  // 始终显示 Qoder 菜单
+  "yunxiao.menuVisibility.qoder": "always"
+}
+```
+
+**使用场景**：
+- 📦 **场景一**：只使用某一个AI，隐藏其他AI菜单，保持菜单简洁
+- ⚙️ **场景二**：根据扩展安装情况自动显示菜单，避免显示无法使用的选项
+- 🔧 **场景三**：在特定IDE环境（如Qoder）外也需要显示专属菜单
+
 #### 自定义消息模板
 
 **Copilot 模板**:
@@ -486,6 +529,27 @@ A: 系统会自动检测，并提供安全选项：
 默认选项为“取消”，优先保护您的代码安全。
 
 ## 版本历史
+
+### 1.6.0 (2025-12-26)
+
+- ⚙️ **右键菜单显示配置**
+  - 新增5个配置项控制AI助手菜单显示时机
+  - 支持三种显示模式：`always`（总是显示）、`never`（总是不显示）、`auto`（自动检测）
+  - 通义灵码、GitHub Copilot、TRAE AI 默认总是显示
+  - Qoder、Trae IDE 默认自动检测显示
+  - 配置变更实时生效，支持自定义菜单显示策略
+- 🤖 **智能AI选择功能增强**
+  - "发送到 AI 助手"菜单新增三级智能选择逻辑
+  - 优先级1：优先使用IDE环境（Qoder或Trae IDE）
+  - 优先级2：自动检测已安装AI扩展（Copilot > TRAE AI > 通义灵码）
+  - 优先级3：未检测到可用AI时显示配置引导
+  - 智能选择不持久化，每次动态检测，自动适应AI安装变化
+- 🔧 **技术优化**
+  - 扩展IDE环境检测功能，新增AI扩展安装状态检测
+  - 新增上下文变量机制，动态控制菜单显示
+  - 重构`detectIDEEnvironment()`函数，返回更完整的检测结果
+  - 新增`updateMenuVisibility()`函数，统一管理菜单显示状态
+  - 完善多语言支持，新增配置项的中英文描述
 
 ### 1.5.0 (2025-12-24)
 

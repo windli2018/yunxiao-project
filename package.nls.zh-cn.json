@@ -88,8 +88,16 @@
   "yunxiao.customAI.attachCommand.description": "附加选中内容到聊天的 VSCode 命令（可选，如果不支持则留空，例如：'github.copilot.chat.attachSelection'）",
   "yunxiao.customAI.installUrl.description": "安装 AI 扩展的 URL（例如：'vscode:extension/GitHub.copilot-chat'）",
   "yunxiao.customAI.template.description": "发送到自定义 AI 的消息模板，支持变量：{type}、{id}、{title}、{description}、{status}、{assignee}、{priority}",
+  "yunxiao.menuVisibility.tongyi.description": "控制'发送到通义灵码'右键菜单的显示时机",
+  "yunxiao.menuVisibility.copilot.description": "控制'发送到 GitHub Copilot'右键菜单的显示时机",
+  "yunxiao.menuVisibility.trae.description": "控制'发送到 TRAE AI'右键菜单的显示时机",
+  "yunxiao.menuVisibility.qoder.description": "控制'发送到 Qoder'右键菜单的显示时机",
+  "yunxiao.menuVisibility.traeide.description": "控制'发送到 Trae IDE'右键菜单的显示时机",
+  "yunxiao.menuVisibility.always": "总是显示",
+  "yunxiao.menuVisibility.never": "总是不显示",
+  "yunxiao.menuVisibility.auto": "适合时显示(检测相关扩展和命令)",
   "yunxiao.branchNameTemplate.description": "新建分支时的命名模板，支持变量：{category}（工作项类型）、{id}（工作项标识符）、{title}（工作项标题）、{date}（当前日期）",
   "yunxiao.autoOpenMergeRequestInBrowser.description": "创建合并请求后是否自动在浏览器中打开",
   "yunxiao.autoOpenMergeRequestInBrowser.ask": "总是询问（默认）",
-  "yunxiao.autoOpenMergeRequestInBrowser.always": "自动打开"}
+  "yunxiao.autoOpenMergeRequestInBrowser.always": "自动打开"
 }

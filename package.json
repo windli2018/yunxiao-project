@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速发送工作项到AI，关联工作项到Git提交消息，支持代码仓库和分支管理与签出",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -457,27 +457,27 @@
         },
         {
           "command": "yunxiao.sendToQoder",
-          "when": "viewItem == workitem && yunxiao.qoderInstalled",
+          "when": "viewItem == workitem && yunxiao.menu.qoderVisible",
           "group": "3_tongyi@1"
         },
         {
           "command": "yunxiao.sendToTraeIDE",
-          "when": "viewItem == workitem && yunxiao.traeideInstalled",
+          "when": "viewItem == workitem && yunxiao.menu.traeideVisible",
           "group": "3_tongyi@1.5"
         },
         {
           "command": "yunxiao.sendToTongyi",
-          "when": "viewItem == workitem",
+          "when": "viewItem == workitem && yunxiao.menu.tongyiVisible",
           "group": "3_tongyi@2"
         },
         {
           "command": "yunxiao.sendToCopilot",
-          "when": "viewItem == workitem",
+          "when": "viewItem == workitem && yunxiao.menu.copilotVisible",
           "group": "3_tongyi@3"
         },
         {
           "command": "yunxiao.sendToTrae",
-          "when": "viewItem == workitem",
+          "when": "viewItem == workitem && yunxiao.menu.traeVisible",
           "group": "3_tongyi@4"
         },
         {
@@ -763,6 +763,66 @@
           "type": "string",
           "default": "{type} #{id} {title}\n{description}",
           "description": "%yunxiao.customAI.template.description%",
+          "scope": "window"
+        },
+        "yunxiao.menuVisibility.tongyi": {
+          "type": "string",
+          "enum": ["always", "never", "auto"],
+          "default": "always",
+          "description": "%yunxiao.menuVisibility.tongyi.description%",
+          "enumDescriptions": [
+            "%yunxiao.menuVisibility.always%",
+            "%yunxiao.menuVisibility.never%",
+            "%yunxiao.menuVisibility.auto%"
+          ],
+          "scope": "window"
+        },
+        "yunxiao.menuVisibility.copilot": {
+          "type": "string",
+          "enum": ["always", "never", "auto"],
+          "default": "always",
+          "description": "%yunxiao.menuVisibility.copilot.description%",
+          "enumDescriptions": [
+            "%yunxiao.menuVisibility.always%",
+            "%yunxiao.menuVisibility.never%",
+            "%yunxiao.menuVisibility.auto%"
+          ],
+          "scope": "window"
+        },
+        "yunxiao.menuVisibility.trae": {
+          "type": "string",
+          "enum": ["always", "never", "auto"],
+          "default": "always",
+          "description": "%yunxiao.menuVisibility.trae.description%",
+          "enumDescriptions": [
+            "%yunxiao.menuVisibility.always%",
+            "%yunxiao.menuVisibility.never%",
+            "%yunxiao.menuVisibility.auto%"
+          ],
+          "scope": "window"
+        },
+        "yunxiao.menuVisibility.qoder": {
+          "type": "string",
+          "enum": ["always", "never", "auto"],
+          "default": "auto",
+          "description": "%yunxiao.menuVisibility.qoder.description%",
+          "enumDescriptions": [
+            "%yunxiao.menuVisibility.always%",
+            "%yunxiao.menuVisibility.never%",
+            "%yunxiao.menuVisibility.auto%"
+          ],
+          "scope": "window"
+        },
+        "yunxiao.menuVisibility.traeide": {
+          "type": "string",
+          "enum": ["always", "never", "auto"],
+          "default": "auto",
+          "description": "%yunxiao.menuVisibility.traeide.description%",
+          "enumDescriptions": [
+            "%yunxiao.menuVisibility.always%",
+            "%yunxiao.menuVisibility.never%",
+            "%yunxiao.menuVisibility.auto%"
+          ],
           "scope": "window"
         },
         "yunxiao.branchNameTemplate": {
