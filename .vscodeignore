@@ -6,6 +6,7 @@ src/**
 # 开发依赖和工具配置
 node_modules/
 .vscode/
+.claude/
 .vscode-test/
 tsconfig.json
 webpack.config.js
@@ -58,6 +59,8 @@ desktop.ini
 
 # 依赖包备份
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
 
 # 参考的其他扩展
 alibaba-cloud.tongyi-lingma-*/
