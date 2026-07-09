@@ -435,13 +435,31 @@ class YunxiaoApiClient {
 
             // 添加其他过滤条件（如果有）
             const additionalConditions = [];
-            
+
             if (filter.statuses && filter.statuses.length > 0) {
                 additionalConditions.push({
                     fieldIdentifier: 'status',
                     operator: 'CONTAINS',
                     value: filter.statuses,
                     className: 'status',
+                    format: 'list'
+                });
+            }
+
+            // 排除「已结束」工作项（已完成/已取消等结束状态阶段），使树视图数量与云效网页端「概览」一致。
+            // statusStageId 仅支持 CONTAINS（白名单），但 NOT_CONTAINS 同样受支持：
+            // 这里用 NOT_CONTAINS 排除结束阶段（云效系统阶段 4=已完成、5=已取消），
+            // 这样项目自定义的进行中阶段（如 7/11/12）会自动被包含，无需逐个枚举。
+            if (filter.excludeTerminal) {
+                const terminalStages = (Array.isArray(filter.terminalStatusStages) && filter.terminalStatusStages.length > 0)
+                    ? filter.terminalStatusStages.map(String)
+                    : ['4', '5'];
+                additionalConditions.push({
+                    fieldIdentifier: 'statusStage',
+                    operator: 'NOT_CONTAINS',
+                    value: terminalStages,
+                    className: 'statusStage',
+                    toValue: null,
                     format: 'list'
                 });
             }
@@ -504,6 +522,7 @@ class YunxiaoApiClient {
                     workitemType: categoryName,  // 使用 categoryMap 映射的中文名称
                     workitemTypeName: item.workitemType?.name,  // 保存 API 返回的原始类型名称，作为次级分类
                     status: item.status?.displayName || item.status?.name,
+                    statusStageId: item.statusStageId != null ? String(item.statusStageId) : undefined,
                     assignedTo: item.assignedTo ? {
                         id: item.assignedTo.id,
                         name: item.assignedTo.name

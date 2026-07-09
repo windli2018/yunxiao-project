@@ -2,7 +2,7 @@
   "name": "yunxiao-workitem-helper",
   "displayName": "云效工作项助手",
   "description": "将阿里云效项目管理集成到 VSCode，快速发送工作项到AI，关联工作项到Git提交消息，支持代码仓库和分支管理与签出",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "publisher": "WindLi",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -672,6 +672,18 @@
           "type": "number",
           "default": 10,
           "description": "%yunxiao.workitemCacheDuration.description%",
+          "scope": "window"
+        },
+        "yunxiao.workitemExcludeTerminal": {
+          "type": "boolean",
+          "default": true,
+          "description": "%yunxiao.workitemExcludeTerminal.description%",
+          "scope": "window"
+        },
+        "yunxiao.workitemTerminalStatusStages": {
+          "type": "string",
+          "default": "4,5",
+          "description": "%yunxiao.workitemTerminalStatusStages.description%",
           "scope": "window"
         },
         "yunxiao.maxRecentProjects": {

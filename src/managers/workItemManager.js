@@ -56,7 +56,23 @@ class WorkItemManager {
     async initializeLazyLoad(projectId, filter = {}, forceRefresh = false) {
         // 为每个类型分别加载第一页（50项）
         const types = getAllCategoryIds(); // 使用统一配置获取所有类型
-        
+
+        // 读取配置：是否在工作项树中排除「已结束」工作项（已完成/已取消）
+        const config = vscode.workspace.getConfiguration('yunxiao');
+        const excludeTerminal = config.get('workitemExcludeTerminal', true);
+        const terminalStatusStages = String(config.get('workitemTerminalStatusStages', '4,5'))
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+
+        // 合成实际生效的过滤条件。loadNextPageForType 会复用 state.filter，
+        // 因此把 excludeTerminal 一并存入，保证「加载更多」也只加载进行中的工作项。
+        const effectiveFilter = { ...filter };
+        if (excludeTerminal) {
+            effectiveFilter.excludeTerminal = true;
+            effectiveFilter.terminalStatusStages = terminalStatusStages;
+        }
+
         // 初始化项目状态
         if (!this.lazyLoadState.has(projectId)) {
             this.lazyLoadState.set(projectId, {});
@@ -67,7 +83,8 @@ class WorkItemManager {
         
         for (const type of types) {
             const typeName = getCategoryName(type);
-            const cacheKey = `workitems:${projectId}:${type}:page1`;
+            // 缓存键带上过滤模式，避免切换「排除已结束」配置后命中旧缓存
+            const cacheKey = `workitems:${projectId}:${type}:page1:${excludeTerminal ? 'active' : 'all'}`;
             
             // 检查缓存（只缓存第一页）
             if (!forceRefresh) {
@@ -83,7 +100,7 @@ class WorkItemManager {
             try {
                 // 调用 API 加载指定类型的第一页，带上过滤条件
                 const response = await this.apiClient.searchWorkItems(projectId, {
-                    ...filter,
+                    ...effectiveFilter,
                     workitemTypes: [type]
                 }, { page: 1, pageSize: 50 });
                 
@@ -95,7 +112,7 @@ class WorkItemManager {
                     hasMore: response.hasMore,
                     total: response.total,
                     items: response.items,
-                    filter: filter  // 保存当前的过滤条件
+                    filter: effectiveFilter  // 保存当前的过滤条件（含 excludeTerminal）
                 };
                 
                 projectState[type] = state;
@@ -114,7 +131,7 @@ class WorkItemManager {
                     hasMore: false,
                     total: 0,
                     items: [],
-                    filter: filter
+                    filter: effectiveFilter
                 };
             }
         }

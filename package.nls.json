@@ -73,6 +73,8 @@
   "yunxiao.includeLink.description": "Include work item link when pasting",
   "yunxiao.projectCacheDuration.description": "Project list cache duration (minutes)",
   "yunxiao.workitemCacheDuration.description": "Work item list cache duration (minutes)",
+  "yunxiao.workitemExcludeTerminal.description": "Exclude completed/cancelled work items (terminal status stages) from the work item tree so the counts match the Yunxiao web 'Overview'. Turn off to show all items.",
+  "yunxiao.workitemTerminalStatusStages.description": "Comma-separated status-stage IDs treated as terminal (ended) and excluded when 'Workitem: Exclude Terminal' is on. Defaults to the Yunxiao system stages 4 (Done) and 5 (Cancelled).",
   "yunxiao.maxRecentProjects.description": "Maximum recent projects count",
   "yunxiao.maxRecentWorkItems.description": "Maximum recent work items count",
   "yunxiao.enableDebugLog.description": "Enable debug logging",

@@ -73,6 +73,8 @@
   "yunxiao.includeLink.description": "粘贴时包含工作项链接",
   "yunxiao.projectCacheDuration.description": "项目列表缓存时长（分钟）",
   "yunxiao.workitemCacheDuration.description": "工作项列表缓存时长（分钟）",
+  "yunxiao.workitemExcludeTerminal.description": "在工作项树中排除已完成/已取消等工作项（结束状态阶段），使数量与云效网页端「概览」一致。关闭则显示全部工作项。",
+  "yunxiao.workitemTerminalStatusStages.description": "被视为结束（terminal）的状态阶段 ID，以逗号分隔；当「工作项：排除结束状态」开启时这些阶段会被排除。默认为云效系统阶段 4（已完成）和 5（已取消）。",
   "yunxiao.maxRecentProjects.description": "最近使用项目数量上限",
   "yunxiao.maxRecentWorkItems.description": "最近使用工作项数量上限",
   "yunxiao.enableDebugLog.description": "启用调试日志输出",
