@@ -450,27 +450,25 @@ ${workitem.subject}
             const progress = this.workItemManager.getLoadProgress(projectId, typeKey);
             const hasMore = this.workItemManager.hasMoreWorkItems(projectId, typeKey);
             
+            // 服务端返回的 total 是应用「排除已结束」过滤后的精确总数，与云效网页「概览」一致（issue #1）。
+            // 优先显示 total，未取得时才退回已加载数量。
+            const displayCount = progress.total > 0 ? progress.total : progress.loaded;
+            
             // 检查该类型是否还有更多
             if (hasMore) {
                 children.push({
                     type: 'load-more',
                     label: `加载更多50项...`,
-                    description: `已加载 ${progress.loaded}`,
+                    description: `已加载 ${progress.loaded}/${progress.total || '?'}`,
                     id: `load-more:${typeKey}`,
                     workitemType: typeKey  // 保存类型信息
                 });
             }
             
-            // 构建分组显示标签
+            // 构建分组显示标签：直接显示精确总数，与云效网页「概览」保持一致
             let groupLabel = typeName;
-            if (progress.loaded > 0) {
-                if (hasMore) {
-                    // 还有更多：显示 50+ 或 100+ 格式
-                    groupLabel = `${typeName} (${progress.loaded}+)`;
-                } else {
-                    // 没有更多：显示实际数量
-                    groupLabel = `${typeName} (${progress.loaded})`;
-                }
+            if (displayCount > 0) {
+                groupLabel = `${typeName} (${displayCount})`;
             }
             
             // 关键修复：不要设置 children 属性，避免 VSCode 自动添加展开图标导致不对齐

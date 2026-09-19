@@ -287,18 +287,52 @@ class YunxiaoApiClient {
     }
 
     /**
+     * 构建工作项过滤条件 JSON（供 getWorkItems 使用）
+     * @param {Object} filter - 与 searchWorkItems 相同的过滤对象
+     * @returns {string} conditions JSON 字符串，无条件时返回空串
+     */
+    buildWorkItemConditions(filter = {}) {
+        const conditionGroups = [];
+        const conditions = [];
+
+        // 排除「已结束」阶段（与 searchWorkItems 口径一致）
+        if (filter.excludeTerminal) {
+            const terminalStages = (Array.isArray(filter.terminalStatusStages) && filter.terminalStatusStages.length > 0)
+                ? filter.terminalStatusStages.map(String)
+                : ['4', '5'];
+            conditions.push({
+                fieldIdentifier: 'statusStage',
+                operator: 'NOT_CONTAINS',
+                value: terminalStages,
+                className: 'statusStage',
+                toValue: null,
+                format: 'list'
+            });
+        }
+
+        if (conditions.length > 0) {
+            conditionGroups.push(conditions);
+        }
+
+        return conditionGroups.length > 0 ? JSON.stringify({ conditionGroups }) : '';
+    }
+
+    /**
      * 获取工作项列表
      * 
      * 使用 SearchWorkitems API 获取指定项目的工作项
      */
-    async getWorkItems(projectId, page = { page: 1, pageSize: 50 }) {
+    async getWorkItems(projectId, page = { page: 1, pageSize: 50 }, filter = {}) {
         try {
+            // 与 searchWorkItems 保持同样口径：默认排除「已结束」状态阶段（已完成/已取消），
+            // 使统计数量与云效网页端「概览」一致（issue #1）。
+            const conditions = this.buildWorkItemConditions(filter);
             const response = await this.axiosInstance.post(
                 `/oapi/v1/projex/organizations/${this.organizationId}/workitems:search`,
                 {
                     spaceId: projectId,
                     category: 'Req,Bug,Task', // 空表示获取所有类型的工作项
-                    // conditions: '',
+                    conditions: conditions,
                     orderBy: 'gmtCreate',
                     page: page.page,
                     perPage: page.pageSize,
@@ -447,9 +481,10 @@ class YunxiaoApiClient {
             }
 
             // 排除「已结束」工作项（已完成/已取消等结束状态阶段），使树视图数量与云效网页端「概览」一致。
-            // statusStageId 仅支持 CONTAINS（白名单），但 NOT_CONTAINS 同样受支持：
-            // 这里用 NOT_CONTAINS 排除结束阶段（云效系统阶段 4=已完成、5=已取消），
-            // 这样项目自定义的进行中阶段（如 7/11/12）会自动被包含，无需逐个枚举。
+            // 经真实 API 验证（2026-09）：
+            //  - fieldIdentifier 必须是 statusStage（statusStageId 无效，返回 total=0）
+            //  - NOT_CONTAINS 可用，排除后 x-total 为过滤后的精确值
+            //  - 云效系统阶段 4=已完成（已关闭）、5=已取消；项目自定义进行中阶段（如 11/12）不在其中
             if (filter.excludeTerminal) {
                 const terminalStages = (Array.isArray(filter.terminalStatusStages) && filter.terminalStatusStages.length > 0)
                     ? filter.terminalStatusStages.map(String)

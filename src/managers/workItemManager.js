@@ -33,7 +33,8 @@ class WorkItemManager {
         }
 
         try {
-            const response = await this.apiClient.getWorkItems(projectId, page);
+            // 与搜索路径保持同一口径：默认排除「已结束」工作项
+            const response = await this.apiClient.getWorkItems(projectId, page, this.buildExcludeTerminalFilter());
             const workitems = response.items;
             
             // 缓存工作项列表
@@ -48,6 +49,23 @@ class WorkItemManager {
     }
 
     /**
+     * 读取「排除已结束工作项」配置，返回可传给 API 的过滤片段
+     * @returns {{excludeTerminal: boolean, terminalStatusStages: Array<string>}}
+     */
+    buildExcludeTerminalFilter() {
+        const config = vscode.workspace.getConfiguration('yunxiao');
+        const excludeTerminal = config.get('workitemExcludeTerminal', true);
+        if (!excludeTerminal) {
+            return { excludeTerminal: false };
+        }
+        const terminalStatusStages = String(config.get('workitemTerminalStatusStages', '4,5'))
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean);
+        return { excludeTerminal: true, terminalStatusStages };
+    }
+
+    /**
      * 初始化懒加载（按类型加载第一页）
      * @param {string} projectId - 项目 ID
      * @param {Object} filter - 过滤条件（包含 keyword 等）
@@ -58,12 +76,7 @@ class WorkItemManager {
         const types = getAllCategoryIds(); // 使用统一配置获取所有类型
 
         // 读取配置：是否在工作项树中排除「已结束」工作项（已完成/已取消）
-        const config = vscode.workspace.getConfiguration('yunxiao');
-        const excludeTerminal = config.get('workitemExcludeTerminal', true);
-        const terminalStatusStages = String(config.get('workitemTerminalStatusStages', '4,5'))
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean);
+        const { excludeTerminal, terminalStatusStages } = this.buildExcludeTerminalFilter();
 
         // 合成实际生效的过滤条件。loadNextPageForType 会复用 state.filter，
         // 因此把 excludeTerminal 一并存入，保证「加载更多」也只加载进行中的工作项。
@@ -237,15 +250,28 @@ class WorkItemManager {
         const { getAllCategoryIds } = require('../config/workitemTypes');
         
         try {
+            // 浅拷贝，避免污染调用方传入的 filter 对象
+            const effectiveFilter = { ...filter };
+            
+            // 统一注入「排除已结束工作项」配置，使所有列表/搜索入口都与云效网页「概览」口径一致（issue #1）。
+            // 例外：按编号精确查找（identifier）或用户显式指定状态（statuses）时不覆盖。
+            if (!effectiveFilter.identifier && (!effectiveFilter.statuses || effectiveFilter.statuses.length === 0) && !effectiveFilter.excludeTerminal) {
+                const excl = this.buildExcludeTerminalFilter();
+                if (excl.excludeTerminal) {
+                    effectiveFilter.excludeTerminal = true;
+                    effectiveFilter.terminalStatusStages = excl.terminalStatusStages;
+                }
+            }
+            
             // 如果 filter 中没有指定 category，自动注入所有类型
             // 符合记忆中的 "searchWorkItems自动补全category" 规范
-            if (!filter.category && !filter.workitemTypes) {
+            if (!effectiveFilter.category && !effectiveFilter.workitemTypes) {
                 const allCategories = getAllCategoryIds();
-                filter.category = allCategories.join(',');
+                effectiveFilter.category = allCategories.join(',');
             }
             
             // 调用 API 搜索（API 已经按 gmtCreate desc 排序）
-            const response = await this.apiClient.searchWorkItems(projectId, filter, page);
+            const response = await this.apiClient.searchWorkItems(projectId, effectiveFilter, page);
             
             // 为了确保结果按创建时间倒序，在前端也进行一次排序
             const items = response.items || [];
